@@ -1,0 +1,24 @@
+---
+deployment:
+  tasks:
+    # Install production dependencies
+    - export DEPLOYPATH=/home/username/public_html/api
+    - /bin/cp -R * $DEPLOYPATH
+    - /bin/cp .env.production $DEPLOYPATH/.env
+    
+    # Install Node.js dependencies
+    - cd $DEPLOYPATH
+    - npm ci --production
+    
+    # Create uploads directory if it doesn't exist
+    - mkdir -p $DEPLOYPATH/uploads/banners
+    - mkdir -p $DEPLOYPATH/uploads/blogs
+    - mkdir -p $DEPLOYPATH/uploads/projects
+    - mkdir -p $DEPLOYPATH/uploads/projecttree
+    
+    # Set proper permissions
+    - chmod 755 $DEPLOYPATH/uploads
+    - chmod 755 $DEPLOYPATH/uploads/*
+    
+    # Restart Node.js application
+    - cd $DEPLOYPATH && node src/server.js

@@ -6,6 +6,12 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 
+# Environment files - NEVER commit these
+.env
+.env.production
+.env.staging
+.env.development
+
 # Runtime data
 pids
 *.pid
