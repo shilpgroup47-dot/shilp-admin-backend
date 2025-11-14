@@ -8,5 +8,5 @@ echo "🚀 Starting Shilp Admin Backend in Production Mode..."
 # Set production environment
 export NODE_ENV=production
 
-# Start the application
+# Start the applications
 exec node src/server.js
