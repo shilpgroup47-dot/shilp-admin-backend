@@ -12,6 +12,7 @@ const publicRoutes = require('./routes/publicRoutes');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/adminRoutes');
 const logRoutes = require('./routes/logRoutes');
+const testRoutes = require('./routes/testRoutes');
 
 const { connectDatabase } = require('./config/database');
 
@@ -150,6 +151,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api', logRoutes);
+app.use('/api/test', testRoutes);
 
 // --------------------------------------------------
 //  ⭐ GLOBAL ERROR HANDLER
