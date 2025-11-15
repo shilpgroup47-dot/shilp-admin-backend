@@ -12,7 +12,6 @@ const publicRoutes = require('./routes/publicRoutes');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/adminRoutes');
 const logRoutes = require('./routes/logRoutes');
-const emergencyRoutes = require('./routes/emergencyRoutes');
 // const testRoutes = require('./routes/testRoutes'); // Temporarily disabled
 
 const { connectDatabase } = require('./config/database');
@@ -146,7 +145,6 @@ app.get('/', (req, res) => {
 // --------------------------------------------------
 app.use('/api/health', healthRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/emergency', emergencyRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/banners', bannerRoutes);
 app.use('/api/projects', projectRoutes);
