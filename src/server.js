@@ -9,6 +9,7 @@ const blogRoutes = require('./routes/blogRoutes');
 const publicRoutes = require('./routes/publicRoutes');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/adminRoutes');
+const logRoutes = require('./routes/logRoutes');
 require('dotenv').config();
 
 const { connectDatabase } = require('./config/database');
@@ -106,6 +107,7 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api', logRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
