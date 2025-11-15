@@ -1,11 +1,15 @@
-name: Simple Deploy Check
+name: Build and Deploy Check
 
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'docs/**'
 
 jobs:
-  build-check:
+  build-and-check:
     runs-on: ubuntu-latest
     
     steps:
@@ -24,15 +28,15 @@ jobs:
     - name: ✅ Build check
       run: npm run build
 
-    - name: 🧪 Run basic tests
+    - name: 🚀 Deployment Ready
       run: |
         echo "✅ Dependencies installed successfully"
         echo "✅ Build process completed"
-        echo "📋 Project ready for manual deployment"
+        echo "📋 Project ready for deployment to cPanel"
         echo ""
-        echo "🚀 To deploy manually:"
-        echo "1. Upload files to cPanel"
-        echo "2. Run: npm ci --production"
-        echo "3. Run: ./auto-deploy.sh"
+        echo "� Manual deployment steps:"
+        echo "1. Upload files to /home/shilfmfe/server_running/backend.shilpgroup.com/"
+        echo "2. Set permissions: chmod +x *.sh"
+        echo "3. Run deployment: ./auto-deploy.sh"
         echo ""
         echo "📖 See DEPLOYMENT-GUIDE.md for detailed instructions"
