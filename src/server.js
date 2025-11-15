@@ -26,54 +26,20 @@ app.use(helmet());
 app.use(compression());
 
 // --------------------------------------------------
-//  ⭐ CORS CONFIG — ULTRA-PERMISSIVE FOR DEVELOPMENT
+//  ⭐ CORS CONFIG — COMPLETELY OPEN FOR ANY DOMAIN
 // --------------------------------------------------
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : [
-      'http://localhost:5174', 
-      'http://localhost:5173', 
-      'http://localhost:3000',
-      'https://backend.shilpgroup.com',
-      'https://admin.shilpgroup.com'
-    ];
-
-console.log('🔍 Allowed Origins:', allowedOrigins);
 console.log('🌍 Environment:', process.env.NODE_ENV);
+console.log('� CORS: All origins allowed - No restrictions');
 
-// More permissive CORS for development
+// Ultra-permissive CORS - Allow ANY domain
 app.use(
   cors({
     origin: function (origin, callback) {
       console.log(`🔍 Request from origin: ${origin}`);
       
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) {
-        console.log('✅ No origin - allowing request');
-        return callback(null, true);
-      }
-
-      // Always allow localhost in development
-      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        console.log('✅ Localhost origin - allowing request');
-        return callback(null, true);
-      }
-
-      // Check configured origins
-      if (allowedOrigins.includes(origin)) {
-        console.log('✅ Origin in allowed list - allowing request');
-        return callback(null, true);
-      }
-
-      // In development, be more permissive
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('✅ Development mode - allowing request');
-        return callback(null, true);
-      }
-
-      console.log(`❌ Origin blocked by CORS: ${origin}`);
-      console.log('📋 Allowed origins:', allowedOrigins);
-      return callback(new Error(`Not allowed by CORS: ${origin}`));
+      // ✅ ALLOW ALL ORIGINS - NO RESTRICTIONS
+      console.log('✅ All origins allowed - no CORS restrictions');
+      return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -118,14 +84,8 @@ const uploadDir = process.env.UPLOAD_DIR || 'uploads';
 app.use(
   '/uploads',
   (req, res, next) => {
-    const origin = req.headers.origin;
-
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      res.header('Access-Control-Allow-Origin', '*');
-    }
-
+    // Allow all origins for uploads
+    res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
