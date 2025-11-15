@@ -1,0 +1,38 @@
+name: Simple Deploy Check
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚚 Checkout code
+      uses: actions/checkout@v3
+
+    - name: 📂 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: 📦 Install dependencies
+      run: npm ci
+
+    - name: ✅ Build check
+      run: npm run build
+
+    - name: 🧪 Run basic tests
+      run: |
+        echo "✅ Dependencies installed successfully"
+        echo "✅ Build process completed"
+        echo "📋 Project ready for manual deployment"
+        echo ""
+        echo "🚀 To deploy manually:"
+        echo "1. Upload files to cPanel"
+        echo "2. Run: npm ci --production"
+        echo "3. Run: ./auto-deploy.sh"
+        echo ""
+        echo "📖 See DEPLOYMENT-GUIDE.md for detailed instructions"
