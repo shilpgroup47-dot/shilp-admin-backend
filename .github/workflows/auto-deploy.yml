@@ -46,7 +46,7 @@ jobs:
       with:
         server: ftp.shilpgroup.com
         username: shilfmfe@backend.shilpgroup.com
-        password: ${{ secrets.FTP_PASSWORD }}
+        password: ${{ secrets.CPANEL_FTP_PASSWORD }}
         server-dir: /home/shilfmfe/server_running/backend.shilpgroup.com/
         local-dir: ./deploy_package/
         exclude: |
