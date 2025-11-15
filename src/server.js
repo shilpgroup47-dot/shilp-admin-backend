@@ -25,33 +25,77 @@ app.use(helmet());
 app.use(compression());
 
 // --------------------------------------------------
-//  ⭐ CORS CONFIG — SIMPLE + 100% ERROR-FREE
+//  ⭐ CORS CONFIG — ULTRA-PERMISSIVE FOR DEVELOPMENT
 // --------------------------------------------------
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : [];
+  : ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'];
 
 console.log('🔍 Allowed Origins:', allowedOrigins);
+console.log('🌍 Environment:', process.env.NODE_ENV);
 
+// More permissive CORS for development
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // Postman, mobile apps etc.
+      console.log(`🔍 Request from origin: ${origin}`);
+      
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        console.log('✅ No origin - allowing request');
+        return callback(null, true);
+      }
 
+      // Always allow localhost in development
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        console.log('✅ Localhost origin - allowing request');
+        return callback(null, true);
+      }
+
+      // Check configured origins
       if (allowedOrigins.includes(origin)) {
+        console.log('✅ Origin in allowed list - allowing request');
+        return callback(null, true);
+      }
+
+      // In development, be more permissive
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('✅ Development mode - allowing request');
         return callback(null, true);
       }
 
       console.log(`❌ Origin blocked by CORS: ${origin}`);
+      console.log('📋 Allowed origins:', allowedOrigins);
       return callback(new Error(`Not allowed by CORS: ${origin}`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    exposedHeaders: ['Content-Length', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   })
 );
 
-// Allow OPTIONS for all
-app.options('*', cors());
+// Allow OPTIONS for all routes with detailed logging
+app.options('*', (req, res) => {
+  console.log(`🔄 OPTIONS request from: ${req.headers.origin}`);
+  
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  console.log('✅ OPTIONS response sent');
+  res.sendStatus(204);
+});
 
 // --------------------------------------------------
 //  ⭐ BODY PARSER
