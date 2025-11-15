@@ -5,7 +5,7 @@ const { validateLogin } = require('../middleware/adminValidation');
 
 const router = express.Router();
 
-// Public routes - Only essential admin APIssdsd
+// Public routes - Only essential admin API
 router.post('/login', validateLogin, adminController.login);
 router.post('/verify-token', adminController.verifyToken);
 router.post('/forgot-password', adminController.forgotPassword);
