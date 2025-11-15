@@ -109,8 +109,10 @@ pids
 *.pid
 *.seed
 
-# Uploaded files (user content)
-uploads/
+# Uploaded files (user content) - Preserve existing files during deployment
+uploads/*
+!uploads/.gitkeep
+!uploads/*/.gitkeep
 
 # IDE and Editor files
 .vscode/

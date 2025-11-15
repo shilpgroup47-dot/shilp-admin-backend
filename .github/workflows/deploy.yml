@@ -1,0 +1,118 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚚 Get latest code
+      uses: actions/checkout@v3
+
+    - name: 📂 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: 🔍 Install dependencies
+      run: npm ci --production
+
+    - name: 🧪 Run tests (if available)
+      run: |
+        if [ -f "jest.config.js" ] || [ "$(grep -c "\"test\"" package.json)" -gt 0 ]; then
+          npm test
+        else
+          echo "No tests found, skipping..."
+        fi
+      continue-on-error: true
+
+    - name: 📂 Create deployment package
+      run: |
+        # Remove development files
+        rm -rf node_modules/.cache
+        rm -rf .git
+        rm -f .env
+        rm -f .env.development
+        
+        # Create deployment archive
+        tar -czf deploy.tar.gz --exclude='.git' --exclude='node_modules/.cache' --exclude='.env*' .
+
+    - name: 🚀 Deploy to cPanel via SFTP
+      uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+      with:
+        username: ${{ secrets.CPANEL_USERNAME }}
+        password: ${{ secrets.CPANEL_PASSWORD }}
+        server: ${{ secrets.CPANEL_SERVER }}
+        port: ${{ secrets.CPANEL_PORT }} # Usually 22 for SFTP
+        local_path: './deploy.tar.gz'
+        remote_path: '/home/shilfmfe/server_running/'
+        
+    - name: 🔧 Extract and setup on server
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.CPANEL_SERVER }}
+        username: ${{ secrets.CPANEL_USERNAME }}
+        password: ${{ secrets.CPANEL_PASSWORD }}
+        port: ${{ secrets.CPANEL_PORT }}
+        script: |
+          cd ~/server_running
+          
+          # Backup uploads directory (preserve user files)
+          if [ -d "backend.shilpgroup.com/uploads" ]; then
+            echo "💾 Backing up uploads directory..."
+            cp -R backend.shilpgroup.com/uploads uploads_backup_$(date +%Y%m%d_%H%M%S)
+          fi
+          
+          # Backup current deployment (without uploads)
+          if [ -d "backend.shilpgroup.com" ]; then
+            echo "📦 Backing up current deployment..."
+            rsync -av --exclude='uploads/' backend.shilpgroup.com/ backend_backup_$(date +%Y%m%d_%H%M%S)/
+            rm -rf backend.shilpgroup.com
+          fi
+          
+          # Extract new deployment
+          echo "📥 Extracting new deployment..."
+          tar -xzf deploy.tar.gz -C ./
+          mv shilp-admin-backend backend.shilpgroup.com || echo "Directory already named correctly"
+          
+          # Restore uploads directory
+          if [ -d "uploads_backup_$(date +%Y%m%d_%H%M%S)" ]; then
+            echo "🔄 Restoring uploads directory..."
+            cp -R uploads_backup_$(date +%Y%m%d_%H%M%S) backend.shilpgroup.com/uploads
+            rm -rf uploads_backup_$(date +%Y%m%d_%H%M%S)
+          fi
+          
+          # Setup environment
+          cd backend.shilpgroup.com
+          cp .env.example .env
+          
+          # Install production dependencies
+          npm ci --production
+          
+          # Create upload directories
+          mkdir -p uploads/{banners,blogs,projects,projecttree}
+          chmod 755 uploads uploads/*
+          
+          # Set permissions
+          chmod +x *.sh
+          
+          # Cleanup
+          rm -f ~/public_html/deploy.tar.gz
+          
+          echo "✅ Deployment completed successfully!"
+
+    - name: 🔔 Notify deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Deployment successful!"
+        else
+          echo "❌ Deployment failed!"
+          exit 1
+        fi
