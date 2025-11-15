@@ -21,35 +21,60 @@ jobs:
         # Only use cache if package-lock.json exists
         cache: ${{ hashFiles('**/package-lock.json') && 'npm' || '' }}
 
-    - name: 🔍 Install dependencies
+    - name: 🔍 Install dependencies for testing
       run: |
         if [ -f "package-lock.json" ]; then
-          echo "Using package-lock.json for exact dependency versions"
-          npm ci --production
+          echo "Installing all dependencies (including dev) for testing"
+          npm ci
         else
           echo "No package-lock.json found, using npm install"
-          npm install --production
+          npm install
         fi
 
     - name: 🧪 Run tests (if available)
       run: |
         if [ -f "jest.config.js" ] || [ "$(grep -c "\"test\"" package.json)" -gt 0 ]; then
+          echo "Running tests..."
           npm test
         else
           echo "No tests found, skipping..."
         fi
       continue-on-error: true
 
+    - name: 📦 Install production dependencies only
+      run: |
+        echo "Installing production dependencies for deployment..."
+        rm -rf node_modules
+        if [ -f "package-lock.json" ]; then
+          npm ci --production
+        else
+          npm install --production
+        fi
+
     - name: 📂 Create deployment package
       run: |
-        # Remove development files
-        rm -rf node_modules/.cache
-        rm -rf .git
-        rm -f .env
-        rm -f .env.development
+        # Create a clean directory for deployment
+        mkdir -p deploy_temp
         
-        # Create deployment archive
-        tar -czf deploy.tar.gz --exclude='.git' --exclude='node_modules/.cache' --exclude='.env*' .
+        # Copy files to deployment directory, excluding unwanted files
+        rsync -av \
+          --exclude='.git/' \
+          --exclude='node_modules/.cache/' \
+          --exclude='.env*' \
+          --exclude='deploy_temp/' \
+          --exclude='*.log' \
+          --exclude='.DS_Store' \
+          . deploy_temp/
+        
+        # Create deployment archive from clean directory
+        cd deploy_temp
+        tar -czf ../deploy.tar.gz .
+        cd ..
+        
+        # Cleanup
+        rm -rf deploy_temp
+        
+        echo "✅ Deployment package created: $(ls -lh deploy.tar.gz)"
 
     - name: 🚀 Deploy to cPanel via SFTP
       uses: wlixcc/SFTP-Deploy-Action@v1.2.4
