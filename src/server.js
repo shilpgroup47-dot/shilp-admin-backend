@@ -50,8 +50,13 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'X-Kuma-Revision'],
+  optionsSuccessStatus: 200 // For legacy browser support
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
 
 app.use(compression());
 app.use(express.json({ limit: '100mb' }));
