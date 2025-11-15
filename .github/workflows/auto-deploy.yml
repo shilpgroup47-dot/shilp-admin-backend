@@ -1,0 +1,96 @@
+name: Auto Deploy to cPanel via FTP
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 🚚 Get latest code
+      uses: actions/checkout@v3
+
+    - name: 📂 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: 📦 Install dependencies
+      run: npm ci --production
+
+    - name: 📁 Create deployment package
+      run: |
+        mkdir deploy_package
+        cp -r src deploy_package/
+        cp package.json deploy_package/
+        cp package-lock.json deploy_package/
+        cp .env.example deploy_package/.env
+        cp auto-deploy.sh deploy_package/
+        cp restart-app.sh deploy_package/
+        cp webhook.php deploy_package/
+        cp .cpanel.yml deploy_package/
+        cp -r uploads deploy_package/
+        
+        # Make scripts executable
+        chmod +x deploy_package/*.sh
+        
+        echo "✅ Deployment package created"
+
+    - name: 🚀 Deploy via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+      with:
+        server: ftp.shilpgroup.com
+        username: shilfmfe@backend.shilpgroup.com
+        password: ${{ secrets.FTP_PASSWORD }}
+        server-dir: /home/shilfmfe/server_running/backend.shilpgroup.com/
+        local-dir: ./deploy_package/
+        exclude: |
+          **/.git*
+          **/.git*/**
+          **/node_modules/**
+          **/.DS_Store
+          **/Thumbs.db
+
+    - name: 🔄 Trigger cPanel App Restart
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: server183.web-hosting.com
+        username: shilfmfe
+        password: ${{ secrets.CPANEL_SSH_PASSWORD }}
+        port: 2083
+        script: |
+          cd /home/shilfmfe/server_running/backend.shilpgroup.com
+          
+          # Install dependencies if package.json changed
+          npm ci --production
+          
+          # Stop existing app
+          pkill -f "node src/server.js" || echo "No existing process"
+          
+          # Create logs directory
+          mkdir -p /home/shilfmfe/logs
+          
+          # Start new app
+          export NODE_ENV=production
+          export PORT=8081
+          nohup node src/server.js > /home/shilfmfe/logs/app.log 2>&1 &
+          
+          # Wait and verify
+          sleep 3
+          if pgrep -f "node src/server.js" > /dev/null; then
+            echo "✅ App restarted successfully!"
+          else
+            echo "❌ App failed to start"
+            exit 1
+          fi
+
+    - name: 🎉 Deployment Complete
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "🌐 Your app should be running at your domain"
+        echo "📊 Check logs via cPanel terminal: tail -f /home/shilfmfe/logs/app.log"
