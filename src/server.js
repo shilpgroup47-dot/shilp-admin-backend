@@ -23,12 +23,29 @@ const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
   : [];
 
+console.log('🔍 CORS Configuration:');
+console.log('📋 Allowed Origins:', allowedOrigins);
+console.log('🌐 NODE_ENV:', process.env.NODE_ENV);
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    console.log(`🔗 Request from origin: ${origin}`);
+    
+    // Allow requests with no origin (mobile apps, curl, postman, etc.)
+    if (!origin) {
+      console.log('✅ No origin - allowing');
       return callback(null, true);
     }
-    callback(new Error('Not allowed by CORS'));
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      console.log(`✅ Origin ${origin} is allowed`);
+      return callback(null, true);
+    }
+    
+    console.log(`❌ Origin ${origin} is NOT allowed`);
+    console.log(`📋 Allowed origins: ${allowedOrigins.join(', ')}`);
+    callback(new Error(`Not allowed by CORS: ${origin}`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
