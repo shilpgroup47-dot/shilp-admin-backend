@@ -18,10 +18,18 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        cache: 'npm'
+        # Only use cache if package-lock.json exists
+        cache: ${{ hashFiles('**/package-lock.json') && 'npm' || '' }}
 
     - name: 🔍 Install dependencies
-      run: npm ci --production
+      run: |
+        if [ -f "package-lock.json" ]; then
+          echo "Using package-lock.json for exact dependency versions"
+          npm ci --production
+        else
+          echo "No package-lock.json found, using npm install"
+          npm install --production
+        fi
 
     - name: 🧪 Run tests (if available)
       run: |
