@@ -62,7 +62,7 @@ jobs:
         host: server183.web-hosting.com
         username: shilfmfe
         password: ${{ secrets.CPANEL_SSH_PASSWORD }}
-        port: 2083
+        port: 22
         script: |
           cd /home/shilfmfe/server_running/backend.shilpgroup.com
           
