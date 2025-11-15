@@ -87,6 +87,15 @@ app.use(
 );
 
 // --------------------------------------------------
+//  ⭐ ROOT QUICK TEST ENDPOINT
+//   Simple plain-text response so visiting / shows a lightweight
+//   confirmation (useful for load-balancers, uptime checks).
+// --------------------------------------------------
+app.get('/', (req, res) => {
+  res.status(200).send('Test server is running');
+});
+
+// --------------------------------------------------
 //  ⭐ API ROUTES
 // --------------------------------------------------
 app.use('/api/health', healthRoutes);
