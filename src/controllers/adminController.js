@@ -5,9 +5,11 @@ class AdminController {
 
   async login(req, res, next) {
     try {
+      console.log('🔍 Login attempt started:', req.body.email);
    
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('❌ Validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           error: {
@@ -21,8 +23,17 @@ class AdminController {
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('User-Agent') || '';
 
-      const result = await adminService.login(email, password, ipAddress, userAgent);
+      console.log('🔍 Calling adminService.login...');
+      
+      // Add timeout protection
+      const loginPromise = adminService.login(email, password, ipAddress, userAgent);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Login timeout after 30 seconds')), 30000)
+      );
+      
+      const result = await Promise.race([loginPromise, timeoutPromise]);
 
+      console.log('✅ Login successful for:', email);
       res.json({
         success: true,
         message: 'Login successful',
