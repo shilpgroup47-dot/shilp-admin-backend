@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# cPanel Node.js Application Restart Script
+# Use this script to restart your Node.js app in cPanel environment
+
+# Configuration - Updated for your cPanel path
+APP_PATH="/home/shilfmfe/server_running/backend.shilpgroup.com"
+LOG_FILE="/home/shilfmfe/logs/restart.log"
+PID_FILE="/home/shilfmfe/backend.pid"
+
+# Function to log messages
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a $LOG_FILE
+}
+
+log_message "🔄 Starting Node.js application restart..."
+
+# Navigate to application directory
+cd $APP_PATH
+
+# Kill existing process
+if [ -f "$PID_FILE" ]; then
+    OLD_PID=$(cat $PID_FILE)
+    if kill -0 $OLD_PID 2>/dev/null; then
+        log_message "⏹️ Stopping existing process (PID: $OLD_PID)"
+        kill $OLD_PID
+        sleep 3
+        
+        # Force kill if still running
+        if kill -0 $OLD_PID 2>/dev/null; then
+            kill -9 $OLD_PID
+            log_message "🔨 Force killed process $OLD_PID"
+        fi
+    fi
+    rm -f $PID_FILE
+fi
+
+# Kill any remaining node processes for this app
+pkill -f "node src/server.js" 2>/dev/null && log_message "🧹 Cleaned up remaining processes"
+
+# Set environment variables
+export NODE_ENV=production
+export PORT=8081
+
+# Start new process
+log_message "🚀 Starting new Node.js process..."
+nohup node src/server.js > /home/shilfmfe/logs/app.log 2>&1 &
+NEW_PID=$!
+
+# Save new PID
+echo $NEW_PID > $PID_FILE
+log_message "✅ New Node.js process started with PID: $NEW_PID"
+
+# Wait for application to initialize
+sleep 5
+
+# Verify process is still running
+if kill -0 $NEW_PID 2>/dev/null; then
+    log_message "✅ Application restart successful!"
+    
+    # Test health endpoint
+    if command -v curl >/dev/null 2>&1; then
+        HEALTH_RESPONSE=$(curl -s -w "%{http_code}" http://localhost:8081/api/health 2>/dev/null)
+        if [[ $HEALTH_RESPONSE == *"200" ]]; then
+            log_message "🔍 Health check passed (HTTP 200)"
+        else
+            log_message "⚠️ Health check failed or unexpected response"
+        fi
+    fi
+    
+    echo "SUCCESS: Application restarted with PID $NEW_PID"
+    exit 0
+else
+    log_message "❌ Application failed to start!"
+    echo "ERROR: Application failed to start"
+    exit 1
+fi
