@@ -1,3 +1,16 @@
+#!/bin/bash
+
+# 🛠️ SAFE SERVER FIX - Remove problematic testRoutes temporarily
+
+echo "🛠️ Applying safe fix to server..."
+
+cd /home/shilfmfe/server_running/backend.shilpgroup.com
+
+# Backup current server.js
+cp src/server.js src/server.js.backup
+
+# Create temporary fixed server.js without testRoutes
+cat > src/server.js.temp << 'EOF'
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -12,22 +25,15 @@ const publicRoutes = require('./routes/publicRoutes');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/adminRoutes');
 const logRoutes = require('./routes/logRoutes');
-// const testRoutes = require('./routes/testRoutes'); // Temporarily disabled
 
 const { connectDatabase } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --------------------------------------------------
-//  ⭐ SECURITY
-// --------------------------------------------------
 app.use(helmet());
 app.use(compression());
 
-// --------------------------------------------------
-//  ⭐ CORS CONFIG — ULTRA-PERMISSIVE FOR DEVELOPMENT
-// --------------------------------------------------
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
   : ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'];
@@ -35,31 +41,26 @@ const allowedOrigins = process.env.CORS_ORIGIN
 console.log('🔍 Allowed Origins:', allowedOrigins);
 console.log('🌍 Environment:', process.env.NODE_ENV);
 
-// More permissive CORS for development
 app.use(
   cors({
     origin: function (origin, callback) {
       console.log(`🔍 Request from origin: ${origin}`);
       
-      // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) {
         console.log('✅ No origin - allowing request');
         return callback(null, true);
       }
 
-      // Always allow localhost in development
       if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
         console.log('✅ Localhost origin - allowing request');
         return callback(null, true);
       }
 
-      // Check configured origins
       if (allowedOrigins.includes(origin)) {
         console.log('✅ Origin in allowed list - allowing request');
         return callback(null, true);
       }
 
-      // In development, be more permissive
       if (process.env.NODE_ENV !== 'production') {
         console.log('✅ Development mode - allowing request');
         return callback(null, true);
@@ -78,7 +79,6 @@ app.use(
   })
 );
 
-// Allow OPTIONS for all routes with detailed logging
 app.options('*', (req, res) => {
   console.log(`🔄 OPTIONS request from: ${req.headers.origin}`);
   
@@ -92,21 +92,15 @@ app.options('*', (req, res) => {
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  res.header('Access-Control-Max-Age', '86400');
   
   console.log('✅ OPTIONS response sent');
   res.sendStatus(204);
 });
 
-// --------------------------------------------------
-//  ⭐ BODY PARSER
-// --------------------------------------------------
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-// --------------------------------------------------
-//  ⭐ STATIC UPLOADS (CORS FIXED)
-// --------------------------------------------------
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
 
 app.use(
@@ -131,18 +125,10 @@ app.use(
   express.static(uploadDir)
 );
 
-// --------------------------------------------------
-//  ⭐ ROOT QUICK TEST ENDPOINT
-//   Simple plain-text response so visiting / shows a lightweight
-//   confirmation (useful for load-balancers, uptime checks).
-// --------------------------------------------------
 app.get('/', (req, res) => {
   res.status(200).send('Test server is running');
 });
 
-// --------------------------------------------------
-//  ⭐ API ROUTES
-// --------------------------------------------------
 app.use('/api/health', healthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/public', publicRoutes);
@@ -151,11 +137,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api', logRoutes);
-// app.use('/api/test', testRoutes); // Temporarily disabled
 
-// --------------------------------------------------
-//  ⭐ GLOBAL ERROR HANDLER
-// --------------------------------------------------
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err.message);
 
@@ -167,9 +149,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// --------------------------------------------------
-//  ⭐ START SERVER
-// --------------------------------------------------
 const startServer = async () => {
   try {
     await connectDatabase();
@@ -185,9 +164,6 @@ const startServer = async () => {
   }
 };
 
-// --------------------------------------------------
-//  ⭐ PROCESS ERROR HANDLERS
-// --------------------------------------------------
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err.message);
   process.exit(1);
@@ -201,7 +177,40 @@ process.on('uncaughtException', (err) => {
 process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));
 
-// --------------------------------------------------
 startServer();
 
 module.exports = app;
+EOF
+
+# Replace with fixed version
+mv src/server.js.temp src/server.js
+
+# Kill existing processes
+pkill -f "node src/server.js" 2>/dev/null
+
+# Start server
+echo "🚀 Starting fixed server..."
+NODE_ENV=production PORT=8081 nohup /opt/alt/alt-nodejs18/root/usr/bin/node src/server.js > /home/shilfmfe/logs/fixed-server.log 2>&1 &
+
+sleep 3
+
+if pgrep -f "node src/server.js" > /dev/null; then
+    echo "✅ Fixed server started successfully!"
+    echo "🌐 Testing endpoints..."
+    
+    # Test root
+    if curl -s --max-time 10 http://localhost:8081/ | grep -q "running"; then
+        echo "✅ Root endpoint working"
+    fi
+    
+    # Test health
+    if curl -s --max-time 10 http://localhost:8081/api/health | grep -q "success"; then
+        echo "✅ Health endpoint working"
+    fi
+    
+    echo "🎉 Server restoration complete!"
+else
+    echo "❌ Server still failed to start"
+    echo "📋 Logs:"
+    tail -10 /home/shilfmfe/logs/fixed-server.log
+fi
