@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+require('dotenv').config();
+
 const bannerRoutes = require('./routes/bannerRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const projectTreeRoutes = require('./routes/projectTreeRoutes');
@@ -10,101 +12,83 @@ const publicRoutes = require('./routes/publicRoutes');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/adminRoutes');
 const logRoutes = require('./routes/logRoutes');
-require('dotenv').config();
 
 const { connectDatabase } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --------------------------------------------------
+//  ⭐ SECURITY
+// --------------------------------------------------
 app.use(helmet());
+app.use(compression());
 
-// CORS Configuration
-const allowedOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+// --------------------------------------------------
+//  ⭐ CORS CONFIG — SIMPLE + 100% ERROR-FREE
+// --------------------------------------------------
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
   : [];
 
-console.log('🔍 CORS Configuration:');
-console.log('📋 Allowed Origins:', allowedOrigins);
-console.log('🌐 NODE_ENV:', process.env.NODE_ENV);
+console.log('🔍 Allowed Origins:', allowedOrigins);
 
-app.use(cors({
-  origin: function (origin, callback) {
-    console.log(`🔗 Request from origin: ${origin}`);
-    
-    // Allow requests with no origin (mobile apps, curl, postman, etc.)
-    if (!origin) {
-      console.log('✅ No origin - allowing');
-      return callback(null, true);
-    }
-    
-    // Check if origin is in allowed list
-    if (allowedOrigins.includes(origin)) {
-      console.log(`✅ Origin ${origin} is allowed`);
-      return callback(null, true);
-    }
-    
-    console.log(`❌ Origin ${origin} is NOT allowed`);
-    console.log(`📋 Allowed origins: ${allowedOrigins.join(', ')}`);
-    callback(new Error(`Not allowed by CORS: ${origin}`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'X-Kuma-Revision'],
-  optionsSuccessStatus: 200 // For legacy browser support
-}));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true); // Postman, mobile apps etc.
 
-// Handle preflight requests explicitly
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log(`❌ Origin blocked by CORS: ${origin}`);
+      return callback(new Error(`Not allowed by CORS: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  })
+);
+
+// Allow OPTIONS for all
 app.options('*', cors());
 
-app.use(compression());
+// --------------------------------------------------
+//  ⭐ BODY PARSER
+// --------------------------------------------------
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-// Static Files - Uploads
+// --------------------------------------------------
+//  ⭐ STATIC UPLOADS (CORS FIXED)
+// --------------------------------------------------
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
-app.use('/uploads', (req, res, next) => {
-  const origin = req.headers.origin;
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  res.header('Cache-Control', 'public, max-age=31536000');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-}, express.static(uploadDir, {
-  fallthrough: false,
-  setHeaders: (res) => {
-    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-  }
-}));
 
-// 404 Handler for uploads
-app.use('/uploads', (err, req, res, next) => {
-  if (err && err.status === 404) {
-    res.status(404).json({
-      success: false,
-      message: 'Image not found'
-    });
-  } else {
-    next(err);
-  }
-});
+app.use(
+  '/uploads',
+  (req, res, next) => {
+    const origin = req.headers.origin;
 
-// API Routes
+    if (origin && allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      res.header('Access-Control-Allow-Origin', '*');
+    }
+
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
+
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+  },
+  express.static(uploadDir)
+);
+
+// --------------------------------------------------
+//  ⭐ API ROUTES
+// --------------------------------------------------
 app.use('/api/health', healthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/public', publicRoutes);
@@ -114,19 +98,23 @@ app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api', logRoutes);
 
-// Global Error Handler
+// --------------------------------------------------
+//  ⭐ GLOBAL ERROR HANDLER
+// --------------------------------------------------
 app.use((err, req, res, next) => {
-  console.error('Error:', err.message);
-  
+  console.error('❌ Error:', err.message);
+
   res.status(err.statusCode || 500).json({
     success: false,
     error: {
-      message: err.message || 'Internal server error'
-    }
+      message: err.message || 'Internal server error',
+    },
   });
 });
 
-// Start Server
+// --------------------------------------------------
+//  ⭐ START SERVER
+// --------------------------------------------------
 const startServer = async () => {
   try {
     await connectDatabase();
@@ -142,7 +130,9 @@ const startServer = async () => {
   }
 };
 
-// Error Handlers
+// --------------------------------------------------
+//  ⭐ PROCESS ERROR HANDLERS
+// --------------------------------------------------
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err.message);
   process.exit(1);
@@ -156,7 +146,7 @@ process.on('uncaughtException', (err) => {
 process.on('SIGTERM', () => process.exit(0));
 process.on('SIGINT', () => process.exit(0));
 
-// Start
+// --------------------------------------------------
 startServer();
 
 module.exports = app;
