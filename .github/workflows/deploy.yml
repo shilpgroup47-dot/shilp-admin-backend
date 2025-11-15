@@ -3,8 +3,6 @@ name: Deploy to cPanel
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   deploy:
@@ -18,134 +16,106 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: '18'
-        # Only use cache if package-lock.json exists
-        cache: ${{ hashFiles('**/package-lock.json') && 'npm' || '' }}
 
-    - name: 🔍 Install dependencies for testing
+    - name: 🔍 Install dependencies
+      run: npm ci --production
+
+    - name: 📂 Create deployment files
       run: |
-        if [ -f "package-lock.json" ]; then
-          echo "Installing all dependencies (including dev) for testing"
-          npm ci
-        else
-          echo "No package-lock.json found, using npm install"
-          npm install
-        fi
+        # Create .env.production from template
+        cp .env.example .env.production
+        
+        # Remove unnecessary files
+        rm -rf .git
+        rm -f .env
+        rm -f .env.development
+        
+        echo "✅ Deployment files prepared"
 
-    - name: 🧪 Run tests (if available)
-      run: |
-        if [ -f "jest.config.js" ] || [ "$(grep -c "\"test\"" package.json)" -gt 0 ]; then
-          echo "Running tests..."
-          npm test
-        else
-          echo "No tests found, skipping..."
-        fi
-      continue-on-error: true
-
-    - name: 📦 Install production dependencies only
-      run: |
-        echo "Installing production dependencies for deployment..."
-        rm -rf node_modules
-        if [ -f "package-lock.json" ]; then
-          npm ci --production
-        else
-          npm install --production
-        fi
-
-    - name: 📂 Create deployment package
-      run: |
-        # Create a clean directory for deployment
-        mkdir -p deploy_temp
-        
-        # Copy files to deployment directory, excluding unwanted files
-        rsync -av \
-          --exclude='.git/' \
-          --exclude='node_modules/.cache/' \
-          --exclude='.env*' \
-          --exclude='deploy_temp/' \
-          --exclude='*.log' \
-          --exclude='.DS_Store' \
-          . deploy_temp/
-        
-        # Create deployment archive from clean directory
-        cd deploy_temp
-        tar -czf ../deploy.tar.gz .
-        cd ..
-        
-        # Cleanup
-        rm -rf deploy_temp
-        
-        echo "✅ Deployment package created: $(ls -lh deploy.tar.gz)"
-
-    - name: 🚀 Deploy to cPanel via SFTP
-      uses: wlixcc/SFTP-Deploy-Action@v1.2.4
-      with:
-        username: ${{ secrets.CPANEL_USERNAME }}
-        password: ${{ secrets.CPANEL_PASSWORD }}
-        server: ${{ secrets.CPANEL_SERVER }}
-        port: ${{ secrets.CPANEL_PORT }} # Usually 22 for SFTP
-        local_path: './deploy.tar.gz'
-        remote_path: '/home/shilfmfe/server_running/'
-        
-    - name: 🔧 Extract and setup on server
+    - name: 🚀 Deploy via SSH
       uses: appleboy/ssh-action@v0.1.7
       with:
-        host: ${{ secrets.CPANEL_SERVER }}
-        username: ${{ secrets.CPANEL_USERNAME }}
+        host: server.shilpgroup.com
+        username: shilfmfe
         password: ${{ secrets.CPANEL_PASSWORD }}
-        port: ${{ secrets.CPANEL_PORT }}
+        port: 22
+        timeout: 300s
         script: |
-          cd ~/server_running
+          # Navigate to deployment directory
+          cd /home/shilfmfe/server_running
           
-          # Backup uploads directory (preserve user files)
-          if [ -d "backend.shilpgroup.com/uploads" ]; then
-            echo "💾 Backing up uploads directory..."
-            cp -R backend.shilpgroup.com/uploads uploads_backup_$(date +%Y%m%d_%H%M%S)
-          fi
+          # Stop existing application
+          echo "⏹️ Stopping existing application..."
+          pkill -f "node src/server.js" || echo "No existing process found"
           
-          # Backup current deployment (without uploads)
+          # Backup current deployment
           if [ -d "backend.shilpgroup.com" ]; then
-            echo "📦 Backing up current deployment..."
-            rsync -av --exclude='uploads/' backend.shilpgroup.com/ backend_backup_$(date +%Y%m%d_%H%M%S)/
-            rm -rf backend.shilpgroup.com
+            echo "📦 Creating backup..."
+            # Backup uploads separately
+            if [ -d "backend.shilpgroup.com/uploads" ]; then
+              cp -R backend.shilpgroup.com/uploads uploads_backup_$(date +%Y%m%d_%H%M%S)
+            fi
+            # Archive old deployment
+            mv backend.shilpgroup.com backup_$(date +%Y%m%d_%H%M%S) || true
           fi
           
-          # Extract new deployment
-          echo "📥 Extracting new deployment..."
-          tar -xzf deploy.tar.gz -C ./
-          mv shilp-admin-backend backend.shilpgroup.com || echo "Directory already named correctly"
+          # Clone fresh code
+          echo "📥 Cloning latest code..."
+          git clone https://github.com/shilpgroup47-dot/shilp-admin-backend.git backend.shilpgroup.com
           
-          # Restore uploads directory
-          if [ -d "uploads_backup_$(date +%Y%m%d_%H%M%S)" ]; then
-            echo "🔄 Restoring uploads directory..."
-            cp -R uploads_backup_$(date +%Y%m%d_%H%M%S) backend.shilpgroup.com/uploads
-            rm -rf uploads_backup_$(date +%Y%m%d_%H%M%S)
-          fi
-          
-          # Setup environment
+          # Setup application
           cd backend.shilpgroup.com
-          cp .env.example .env
           
-          # Install production dependencies
+          # Install dependencies
+          echo "📦 Installing dependencies..."
           npm ci --production
           
-          # Create upload directories
+          # Restore uploads if backup exists
+          if [ -d "/home/shilfmfe/server_running/uploads_backup_$(date +%Y%m%d_%H%M%S)" ]; then
+            echo "🔄 Restoring uploads..."
+            cp -R /home/shilfmfe/server_running/uploads_backup_$(date +%Y%m%d_%H%M%S)/* uploads/ 2>/dev/null || true
+          fi
+          
+          # Create uploads directories
           mkdir -p uploads/{banners,blogs,projects,projecttree}
-          chmod 755 uploads uploads/*
+          chmod 755 uploads uploads/* 2>/dev/null || true
           
-          # Set permissions
-          chmod +x *.sh
+          # Make scripts executable
+          chmod +x *.sh 2>/dev/null || true
           
-          # Cleanup
-          rm -f ~/public_html/deploy.tar.gz
+          # Create production environment
+          cp .env.example .env
           
-          echo "✅ Deployment completed successfully!"
+          # Start application
+          echo "🚀 Starting application..."
+          export NODE_ENV=production
+          export PORT=8081
+          nohup node src/server.js > /home/shilfmfe/logs/app.log 2>&1 &
+          
+          # Wait and verify
+          sleep 5
+          if pgrep -f "node src/server.js" > /dev/null; then
+            echo "✅ Application started successfully!"
+          else
+            echo "❌ Application failed to start"
+            echo "Last 10 lines of log:"
+            tail -10 /home/shilfmfe/logs/app.log 2>/dev/null || echo "No log file found"
+            exit 1
+          fi
+          
+          # Cleanup old backups (keep last 3)
+          cd /home/shilfmfe/server_running
+          ls -1t backup_* 2>/dev/null | tail -n +4 | xargs rm -rf || true
+          ls -1t uploads_backup_* 2>/dev/null | tail -n +4 | xargs rm -rf || true
+          
+          echo "🎉 Deployment completed successfully!"
 
-    - name: 🔔 Notify deployment status
+    - name: 🔔 Deployment Result
       if: always()
       run: |
         if [ "${{ job.status }}" == "success" ]; then
-          echo "✅ Deployment successful!"
+          echo "✅ Deployment completed successfully!"
+          echo "🌐 Your backend should be running at: https://backend.shilpgroup.com"
         else
-          echo "❌ Deployment failed!"
-          exit 1
+          echo "❌ Deployment failed - check the logs above"
         fi
