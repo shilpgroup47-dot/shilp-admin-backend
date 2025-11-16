@@ -5,83 +5,152 @@ const { validateLogin } = require('../middleware/adminValidation');
 
 const router = express.Router();
 
-// Direct Emergency Login Implementation (replaces problematic main login)
+// Enhanced Admin Login with Comprehensive Validation
 router.post('/login', async (req, res) => {
   try {
-    console.log('🔄 Admin login attempt with emergency logic...');
+    console.log('🔄 Admin login attempt starting...');
+    console.log('📧 Request body keys:', Object.keys(req.body));
     
     const { email, password } = req.body;
     
-    // Basic validation
-    if (!email || !password) {
+    // Enhanced validation with detailed error messages
+    if (!email) {
+      console.log('❌ Validation failed: Email missing');
       return res.status(400).json({
         success: false,
-        error: { message: 'Email and password are required' }
+        error: { message: 'Email is required' }
       });
     }
     
-    // Direct MongoDB connection (bypass service layer issues)
+    if (!password) {
+      console.log('❌ Validation failed: Password missing');
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Password is required' }
+      });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log('❌ Validation failed: Invalid email format');
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Invalid email format' }
+      });
+    }
+    
+    // Direct MongoDB connection with enhanced error handling
     const mongoose = require('mongoose');
     const jwt = require('jsonwebtoken');
+    const bcrypt = require('bcrypt');
     const Admin = require('../models/Admin');
     
-    console.log('🔍 Looking for admin:', email);
+    console.log('🔍 Searching for admin with email:', email.toLowerCase());
     
-    // Find admin directly
-    const admin = await Admin.findOne({ email: email.toLowerCase() });
+    // Enhanced admin search with error handling
+    let admin;
+    try {
+      admin = await Admin.findOne({ 
+        email: { $regex: new RegExp(`^${email.toLowerCase()}$`, 'i') }
+      });
+    } catch (dbError) {
+      console.error('❌ Database query error:', dbError.message);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Database connection error' }
+      });
+    }
     
     if (!admin) {
-      console.log('❌ Admin not found');
+      console.log('❌ Admin not found for email:', email);
       return res.status(401).json({
         success: false,
-        error: { message: 'Invalid credentials' }
+        error: { message: 'Invalid email or password' }
       });
     }
     
-    console.log('👤 Admin found:', admin.username);
+    console.log('👤 Admin found:', {
+      username: admin.username,
+      email: admin.email,
+      isActive: admin.isActive,
+      role: admin.role,
+      passwordType: admin.password?.startsWith('$2') ? 'bcrypt-hashed' : 'plain-text'
+    });
     
-    // Check if admin is active
+    // Enhanced account status checks
     if (!admin.isActive) {
+      console.log('❌ Account inactive for:', admin.email);
       return res.status(401).json({
         success: false,
-        error: { message: 'Account is deactivated' }
+        error: { message: 'Account is deactivated. Please contact administrator.' }
       });
     }
     
-    // Password check - support both bcrypt-hashed and plain-text stored passwords
-    const bcrypt = require('bcrypt');
+    if (admin.isLocked) {
+      console.log('❌ Account locked for:', admin.email);
+      return res.status(401).json({
+        success: false,
+        error: { message: 'Account is locked. Please contact administrator.' }
+      });
+    }
+    
+    // Enhanced password verification with detailed logging
     let isValidPassword = false;
+    let passwordMethod = 'unknown';
 
     try {
-      if (admin.password && typeof admin.password === 'string' && admin.password.startsWith('$2')) {
-        // Likely a bcrypt hash
-        isValidPassword = await bcrypt.compare(password, admin.password);
-        console.log('🔐 Used bcrypt.compare for password verification');
-      } else {
-        // Fallback to plain-text comparison (legacy/emergency)
-        isValidPassword = admin.password === password;
-        console.log('🔐 Used plain-text comparison for password verification');
+      if (!admin.password) {
+        console.log('❌ No password stored for admin');
+        return res.status(401).json({
+          success: false,
+          error: { message: 'Invalid email or password' }
+        });
       }
-    } catch (pwErr) {
-      console.error('❌ Password verification error:', pwErr.message);
-      // Fall back to simple equality if bcrypt fails for some reason
-      isValidPassword = admin.password === password;
+
+      // Check if password is bcrypt hash
+      if (admin.password.startsWith('$2a$') || admin.password.startsWith('$2b$') || admin.password.startsWith('$2y$')) {
+        console.log('🔐 Attempting bcrypt password verification...');
+        passwordMethod = 'bcrypt';
+        isValidPassword = await bcrypt.compare(password, admin.password);
+        console.log('🔐 Bcrypt verification result:', isValidPassword);
+      } else {
+        console.log('🔐 Attempting plain-text password verification...');
+        passwordMethod = 'plain-text';
+        isValidPassword = admin.password === password;
+        console.log('🔐 Plain-text verification result:', isValidPassword);
+      }
+    } catch (passwordError) {
+      console.error('❌ Password verification error:', passwordError.message);
+      // Try fallback plain-text comparison
+      try {
+        isValidPassword = admin.password === password;
+        passwordMethod = 'fallback-plain-text';
+        console.log('🔐 Fallback verification result:', isValidPassword);
+      } catch (fallbackError) {
+        console.error('❌ Fallback verification failed:', fallbackError.message);
+        return res.status(500).json({
+          success: false,
+          error: { message: 'Password verification system error' }
+        });
+      }
     }
 
     if (!isValidPassword) {
-      console.log('❌ Invalid password');
+      console.log(`❌ Invalid password for ${admin.email} (method: ${passwordMethod})`);
       return res.status(401).json({
         success: false,
-        error: { message: 'Invalid credentials' }
+        error: { message: 'Invalid email or password' }
       });
     }
     
-    console.log('✅ Password valid, generating token...');
+    console.log(`✅ Password valid for ${admin.email} (method: ${passwordMethod})`);
     
-    // Generate JWT token
+    // Enhanced JWT token generation
     const tokenPayload = {
-      id: admin._id,
+      id: admin._id.toString(),
       email: admin.email,
+      username: admin.username,
       role: admin.role,
       permissions: admin.permissions || [
         'users.read', 'users.write', 'users.delete',
@@ -89,44 +158,73 @@ router.post('/login', async (req, res) => {
         'system.manage', 'projects.create', 'projects.read',
         'projects.update', 'projects.delete', 'banners.create',
         'banners.read', 'banners.update', 'banners.delete'
-      ]
+      ],
+      iat: Math.floor(Date.now() / 1000)
     };
     
-    const token = jwt.sign(
-      tokenPayload,
-      process.env.JWT_SECRET || 'shilp-group-admin-secret-key-2024',
-      { expiresIn: '7d' }
-    );
+    const jwtSecret = process.env.JWT_SECRET || 'shilp-group-admin-secret-key-2024';
+    const jwtExpiry = process.env.JWT_EXPIRES_IN || '7d';
+    
+    let token;
+    try {
+      token = jwt.sign(tokenPayload, jwtSecret, { expiresIn: jwtExpiry });
+      console.log('✅ JWT token generated successfully');
+    } catch (jwtError) {
+      console.error('❌ JWT generation error:', jwtError.message);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Token generation failed' }
+      });
+    }
     
     const adminData = {
-      id: admin._id,
+      id: admin._id.toString(),
       email: admin.email,
       username: admin.username,
       fullName: admin.fullName,
       role: admin.role,
-      permissions: tokenPayload.permissions
+      permissions: tokenPayload.permissions,
+      isActive: admin.isActive
     };
     
     console.log('✅ Login successful for:', admin.email);
+    console.log('📊 Response data prepared');
     
-    res.json({
+    // Update last login timestamp
+    try {
+      await Admin.updateOne(
+        { _id: admin._id },
+        { lastLoginAt: new Date() }
+      );
+      console.log('📅 Last login timestamp updated');
+    } catch (updateError) {
+      console.warn('⚠️ Could not update last login:', updateError.message);
+      // Don't fail the login for this
+    }
+    
+    res.status(200).json({
       success: true,
       message: 'Login successful',
       data: {
         token,
         admin: adminData,
-        expiresIn: '7d'
+        expiresIn: jwtExpiry
       }
     });
     
   } catch (error) {
-    console.error('❌ Login error:', error);
-    res.status(500).json({
-      success: false,
-      error: { 
-        message: 'Login failed: ' + error.message
-      }
-    });
+    console.error('❌ Login system error:', error);
+    console.error('🔍 Error stack:', error.stack);
+    
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: { 
+          message: 'Login system error. Please try again or contact support.',
+          code: 'INTERNAL_LOGIN_ERROR'
+        }
+      });
+    }
   }
 });
 router.post('/verify-token', adminController.verifyToken);
