@@ -95,7 +95,7 @@ app.use((req, res, next) => {
     req.setTimeout(300000); // 5 minutes for uploads
     res.setTimeout(300000);
   } else {
-    req.setTimeout(30000);  // 30 seconds for regular requests
+    req.setTimeout(100000);  // 30 seconds for regular requests
     res.setTimeout(30000);
   }
   
