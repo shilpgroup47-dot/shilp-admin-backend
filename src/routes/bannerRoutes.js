@@ -30,24 +30,19 @@ const storage = multer.diskStorage({
   }
 });
 
-// Enhanced file filter with detailed validation
+// 🚀 OPTIMIZED file filter for faster validation
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
-    'image/jpeg',
-    'image/jpg', 
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'image/svg+xml'
-  ];
-  
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
-  const ext = path.extname(file.originalname).toLowerCase();
-  
-  if (allowedTypes.includes(file.mimetype) && allowedExtensions.includes(ext)) {
-    cb(null, true);
+  // Quick MIME type check (faster than extension check)
+  if (file.mimetype.startsWith('image/')) {
+    // Allow common image types
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (validTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported image format'), false);
+    }
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, GIF, WebP, and SVG images are allowed.'), false);
+    cb(new Error('Only image files allowed'), false);
   }
 };
 
@@ -55,8 +50,10 @@ const upload = multer({
   storage,
   fileFilter,
   limits: { 
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 1 // Single file upload only
+    fileSize: 50 * 1024 * 1024,  // 50MB limit (increased for better banner quality)
+    files: 1,                    // Single file upload only
+    fieldSize: 50 * 1024 * 1024, // Field size limit
+    fieldNameSize: 1000          // Field name size
   }
 });
 

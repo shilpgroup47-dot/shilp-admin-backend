@@ -288,9 +288,34 @@ projectSchema.statics.findByState = function(state) {
   return this.find({ projectState: state, isActive: true }).sort({ createdAt: -1 });
 };
 
-// Static method to find by project type
+// 🚀 PERFORMANCE OPTIMIZATIONS
+
+// Indexes for faster queries
+projectSchema.index({ slug: 1 }, { unique: true }); // Unique index for slug
+projectSchema.index({ projectType: 1, isActive: 1 }); // Compound index for type filtering
+projectSchema.index({ projectState: 1, isActive: 1 }); // Compound index for state filtering
+projectSchema.index({ createdAt: -1 }); // Index for sorting by creation date
+projectSchema.index({ updatedAt: -1 }); // Index for sorting by update date
+projectSchema.index({ cardProjectType: 1, isActive: 1, createdAt: -1 }); // Compound index for findByType
+
+// Set schema options for better performance
+projectSchema.set('autoIndex', false); // Disable auto-indexing in production
+projectSchema.set('validateBeforeSave', true); // Enable validation before save
+
+// Static method to find by project type - OPTIMIZED
 projectSchema.statics.findByType = function(type) {
-  return this.find({ cardProjectType: type, isActive: true }).sort({ createdAt: -1 });
+  return this.find({ cardProjectType: type, isActive: true })
+    .select('-__v') // Exclude version field
+    .sort({ createdAt: -1 })
+    .lean(); // Use lean() for faster queries when no modifications needed
+};
+
+// Static method to find active projects - OPTIMIZED
+projectSchema.statics.findActive = function() {
+  return this.find({ isActive: true })
+    .select('-__v')
+    .sort({ createdAt: -1 })
+    .lean();
 };
 
 const Project = mongoose.model('Project', projectSchema);

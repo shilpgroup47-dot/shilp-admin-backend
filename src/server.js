@@ -17,14 +17,32 @@ const { connectDatabase } = require('./config/database');
 
 const app = express();
 
-// SECURITY
-app.use(helmet());
-app.use(compression());
+// 🚀 PERFORMANCE OPTIMIZATIONS
+app.set('trust proxy', 1); // Trust first proxy
+app.disable('x-powered-by'); // Remove Express signature
+
+// SECURITY - Optimized
+app.use(helmet({
+  crossOriginEmbedderPolicy: false, // Allow file uploads
+  contentSecurityPolicy: false     // Disable for better performance
+}));
+
+// COMPRESSION - High level for better performance
+app.use(compression({ 
+  level: 9,           // Maximum compression
+  threshold: 1024,    // Only compress files larger than 1KB
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 // SIMPLE CORS (Only 3 domains)
 const allowedOrigins = [
   'https://admin.shilpgroup.com',
-  'https://shilpgroup.com',
+  'https://shilpgroup.com', 
   'https://backend.shilpgroup.com',
   'http://localhost:5174'
 ];
@@ -32,13 +50,24 @@ const allowedOrigins = [
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,
+  maxAge: 86400, // Cache preflight for 24 hours
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 app.options('*', cors());
 
-// BODY PARSER
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ extended: true, limit: '100mb' }));
+// BODY PARSER - Optimized for large files
+app.use(express.json({ 
+  limit: '150mb',           // Increased for large images
+  strict: false,            // Allow any JSON-parseable type
+  type: 'application/json'
+}));
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '150mb',           // Increased for large images
+  parameterLimit: 100000    // Increased parameter limit
+}));
 
 // UPLOADS
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';

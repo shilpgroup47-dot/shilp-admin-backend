@@ -8,26 +8,28 @@ const { validateFileSize } = require('../middleware/fileSizeValidation');
 
 const router = express.Router();
 
-// Multer configuration for file uploads
-const storage = multer.memoryStorage(); // Use memory storage for processing
+// Multer configuration for file uploads - OPTIMIZED FOR PERFORMANCE
+const storage = multer.memoryStorage(); // Use memory storage for faster processing
 
 const fileFilter = (req, file, cb) => {
-  // Allow images and PDFs
+  // 🚀 FAST file type validation
+  const allowedTypes = {
+    'brochure': ['application/pdf'],
+    'image': ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
+    'amenity': ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml']
+  };
+  
+  // Quick MIME type check
   if (file.fieldname === 'brochure') {
-    // PDF only for brochure
-    if (file.mimetype === 'application/pdf') {
+    if (allowedTypes.brochure.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Brochure must be a PDF file'), false);
+      cb(new Error('Brochure: Only PDF files allowed'), false);
     }
+  } else if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
   } else {
-    // Images for all other fields
-    if (file.mimetype.startsWith('image/') || 
-        (file.fieldname.includes('amenity') && file.mimetype === 'image/svg+xml')) {
-      cb(null, true);
-    } else {
-      cb(new Error(`${file.fieldname} must be an image file`), false);
-    }
+    cb(new Error(`Invalid file type for ${file.fieldname}`), false);
   }
 };
 
@@ -35,8 +37,11 @@ const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 250 * 1024 * 1024, // 250MB limit per file
-    files: 100 // Maximum 100 files per request
+    fileSize: 150 * 1024 * 1024,  // 150MB per file (increased from 250MB for stability)
+    files: 50,                     // Maximum 50 files (reduced for better performance)
+    fieldSize: 100 * 1024 * 1024, // 100MB field size
+    fieldNameSize: 1000,           // Field name size limit
+    fields: 100                    // Maximum number of fields
   }
 });
 
