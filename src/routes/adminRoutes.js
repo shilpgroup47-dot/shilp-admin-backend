@@ -8,14 +8,10 @@ const router = express.Router();
 // Enhanced Admin Login with Comprehensive Validation
 router.post('/login', async (req, res) => {
   try {
-    console.log('🔄 Admin login attempt starting...');
-    console.log('📧 Request body keys:', Object.keys(req.body));
-    
     const { email, password } = req.body;
     
     // Enhanced validation with detailed error messages
     if (!email) {
-      console.log('❌ Validation failed: Email missing');
       return res.status(400).json({
         success: false,
         error: { message: 'Email is required' }
@@ -23,7 +19,6 @@ router.post('/login', async (req, res) => {
     }
     
     if (!password) {
-      console.log('❌ Validation failed: Password missing');
       return res.status(400).json({
         success: false,
         error: { message: 'Password is required' }
@@ -33,7 +28,6 @@ router.post('/login', async (req, res) => {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.log('❌ Validation failed: Invalid email format');
       return res.status(400).json({
         success: false,
         error: { message: 'Invalid email format' }
@@ -46,8 +40,6 @@ router.post('/login', async (req, res) => {
     const bcrypt = require('bcrypt');
     const Admin = require('../models/Admin');
     
-    console.log('🔍 Searching for admin with email:', email.toLowerCase());
-    
     // Enhanced admin search with error handling
     let admin;
     try {
@@ -55,32 +47,21 @@ router.post('/login', async (req, res) => {
         email: { $regex: new RegExp(`^${email.toLowerCase()}$`, 'i') }
       });
     } catch (dbError) {
-      console.error('❌ Database query error:', dbError.message);
       return res.status(500).json({
         success: false,
-        error: { message: 'Database connection error' }
+        error: { message: 'Database connection error. Please try again later.' }
       });
     }
     
     if (!admin) {
-      console.log('❌ Admin not found for email:', email);
       return res.status(401).json({
         success: false,
         error: { message: 'Invalid email or password' }
       });
     }
     
-    console.log('👤 Admin found:', {
-      username: admin.username,
-      email: admin.email,
-      isActive: admin.isActive,
-      role: admin.role,
-      passwordType: admin.password?.startsWith('$2') ? 'bcrypt-hashed' : 'plain-text'
-    });
-    
     // Enhanced account status checks
     if (!admin.isActive) {
-      console.log('❌ Account inactive for:', admin.email);
       return res.status(401).json({
         success: false,
         error: { message: 'Account is deactivated. Please contact administrator.' }
@@ -88,20 +69,17 @@ router.post('/login', async (req, res) => {
     }
     
     if (admin.isLocked) {
-      console.log('❌ Account locked for:', admin.email);
       return res.status(401).json({
         success: false,
         error: { message: 'Account is locked. Please contact administrator.' }
       });
     }
     
-    // Enhanced password verification with detailed logging
+    // Enhanced password verification
     let isValidPassword = false;
-    let passwordMethod = 'unknown';
 
     try {
       if (!admin.password) {
-        console.log('❌ No password stored for admin');
         return res.status(401).json({
           success: false,
           error: { message: 'Invalid email or password' }
@@ -110,41 +88,28 @@ router.post('/login', async (req, res) => {
 
       // Check if password is bcrypt hash
       if (admin.password.startsWith('$2a$') || admin.password.startsWith('$2b$') || admin.password.startsWith('$2y$')) {
-        console.log('🔐 Attempting bcrypt password verification...');
-        passwordMethod = 'bcrypt';
         isValidPassword = await bcrypt.compare(password, admin.password);
-        console.log('🔐 Bcrypt verification result:', isValidPassword);
       } else {
-        console.log('🔐 Attempting plain-text password verification...');
-        passwordMethod = 'plain-text';
         isValidPassword = admin.password === password;
-        console.log('🔐 Plain-text verification result:', isValidPassword);
       }
     } catch (passwordError) {
-      console.error('❌ Password verification error:', passwordError.message);
       // Try fallback plain-text comparison
       try {
         isValidPassword = admin.password === password;
-        passwordMethod = 'fallback-plain-text';
-        console.log('🔐 Fallback verification result:', isValidPassword);
       } catch (fallbackError) {
-        console.error('❌ Fallback verification failed:', fallbackError.message);
         return res.status(500).json({
           success: false,
-          error: { message: 'Password verification system error' }
+          error: { message: 'Authentication system error. Please try again later.' }
         });
       }
     }
 
     if (!isValidPassword) {
-      console.log(`❌ Invalid password for ${admin.email} (method: ${passwordMethod})`);
       return res.status(401).json({
         success: false,
         error: { message: 'Invalid email or password' }
       });
     }
-    
-    console.log(`✅ Password valid for ${admin.email} (method: ${passwordMethod})`);
     
     // Enhanced JWT token generation
     const tokenPayload = {
@@ -168,12 +133,10 @@ router.post('/login', async (req, res) => {
     let token;
     try {
       token = jwt.sign(tokenPayload, jwtSecret, { expiresIn: jwtExpiry });
-      console.log('✅ JWT token generated successfully');
     } catch (jwtError) {
-      console.error('❌ JWT generation error:', jwtError.message);
       return res.status(500).json({
         success: false,
-        error: { message: 'Token generation failed' }
+        error: { message: 'Token generation failed. Please try again later.' }
       });
     }
     
@@ -187,18 +150,13 @@ router.post('/login', async (req, res) => {
       isActive: admin.isActive
     };
     
-    console.log('✅ Login successful for:', admin.email);
-    console.log('📊 Response data prepared');
-    
     // Update last login timestamp
     try {
       await Admin.updateOne(
         { _id: admin._id },
         { lastLoginAt: new Date() }
       );
-      console.log('📅 Last login timestamp updated');
     } catch (updateError) {
-      console.warn('⚠️ Could not update last login:', updateError.message);
       // Don't fail the login for this
     }
     
@@ -213,14 +171,11 @@ router.post('/login', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Login system error:', error);
-    console.error('🔍 Error stack:', error.stack);
-    
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
         error: { 
-          message: 'Login system error. Please try again or contact support.',
+          message: 'Internal server error. Please try again later.',
           code: 'INTERNAL_LOGIN_ERROR'
         }
       });
