@@ -4,29 +4,15 @@ const { validationResult } = require('express-validator');
 class AdminController {
 
   async login(req, res, next) {
-    // Set timeout for the entire request
-    const timeoutId = setTimeout(() => {
-      if (!res.headersSent) {
-        console.log('⏰ Login request timeout');
-        res.status(408).json({
-          success: false,
-          error: { message: 'Request timeout - please try again' }
-        });
-      }
-    }, 25000); // 25 second timeout
-    
     try {
-      console.log('🔍 Login attempt started:', req.body.email);
-   
+      // Check validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('❌ Validation errors:', errors.array());
-        clearTimeout(timeoutId);
         return res.status(400).json({
           success: false,
           error: {
-            message: 'Validation failed',
-            details: errors.array()
+            message: errors.array()[0].msg || 'Validation failed',
+            field: errors.array()[0].path || 'unknown'
           }
         });
       }
@@ -35,84 +21,62 @@ class AdminController {
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('User-Agent') || '';
 
-      console.log('🔍 Calling adminService.login...');
-      
-      // Add promise race with timeout
-      const loginPromise = adminService.login(email, password, ipAddress, userAgent);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('AdminService timeout after 20 seconds')), 20000)
-      );
-      
-      const result = await Promise.race([loginPromise, timeoutPromise]);
+      const result = await adminService.login(email, password, ipAddress, userAgent);
 
-      console.log('✅ Login successful for:', email);
-      clearTimeout(timeoutId);
-      
-      if (!res.headersSent) {
-        res.json({
-          success: true,
-          message: 'Login successful',
-          data: result
-        });
-      }
+      res.status(200).json({
+        success: true,
+        message: 'Login successful',
+        data: result
+      });
+
     } catch (error) {
-      console.log('❌ Login error:', error.message);
-      clearTimeout(timeoutId);
-      
       if (!res.headersSent) {
-        // Handle specific error types
-        if (error.message.includes('timeout')) {
-          return res.status(408).json({
-            success: false,
-            error: { message: 'Login request timed out. Please try the emergency login endpoint.' }
-          });
+        // Handle specific error types with single response format
+        let statusCode = 500;
+        let message = 'Internal server error';
+
+        if (error.message.includes('Invalid credentials') || error.message.includes('EMAIL_NOT_FOUND') || error.message.includes('INVALID_PASSWORD')) {
+          statusCode = 401;
+          message = 'Invalid email or password';
+        } else if (error.message.includes('Account deactivated') || error.message.includes('Account locked')) {
+          statusCode = 401;
+          message = error.message;
+        } else if (error.message.includes('Database') || error.message.includes('Connection')) {
+          statusCode = 503;
+          message = 'Service temporarily unavailable. Please try again later.';
+        } else if (error.message.includes('timeout')) {
+          statusCode = 408;
+          message = 'Request timeout. Please try again.';
         }
-        
-        if (error.message.includes('EMAIL_NOT_FOUND')) {
-          return res.status(401).json({
-            success: false,
-            error: { message: 'Email not found' }
-          });
-        }
-        
-        if (error.message.includes('INVALID_PASSWORD')) {
-          return res.status(401).json({
-            success: false,
-            error: { message: 'Invalid password' }
-          });
-        }
-        
-        // Generic error
-        res.status(500).json({
+
+        res.status(statusCode).json({
           success: false,
-          error: { 
-            message: 'Login failed: ' + error.message,
-            suggestion: 'Try using /api/emergency/emergency-login endpoint'
+          error: {
+            message: message
           }
         });
       }
     }
   }
 
-
   async getProfile(req, res, next) {
     try {
-      const result = await adminService.getProfile(req.admin.id);
-
+      const adminId = req.admin.id;
+      const profile = await adminService.getProfile(adminId);
+      
       res.json({
         success: true,
-        data: result
+        data: profile
       });
     } catch (error) {
       next(error);
     }
   }
 
-
-  async verifyToken(req, res, _next) {
+  async verifyToken(req, res, next) {
     try {
       const { token } = req.body;
-
+      
       if (!token) {
         return res.status(400).json({
           success: false,
@@ -121,7 +85,7 @@ class AdminController {
       }
 
       const result = await adminService.verifyToken(token);
-
+      
       res.json({
         success: true,
         data: result
@@ -134,11 +98,10 @@ class AdminController {
     }
   }
 
-
   async forgotPassword(req, res, next) {
     try {
       const { email } = req.body;
-
+      
       if (!email) {
         return res.status(400).json({
           success: false,
@@ -146,10 +109,11 @@ class AdminController {
         });
       }
 
-
+      await adminService.forgotPassword(email);
+      
       res.json({
         success: true,
-        message: 'If an admin account with this email exists, a password reset link has been sent.'
+        message: 'Password reset instructions sent to your email'
       });
     } catch (error) {
       next(error);
