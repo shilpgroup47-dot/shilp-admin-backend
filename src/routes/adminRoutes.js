@@ -48,9 +48,26 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    // Direct password comparison (plain text for emergency access)
-    const isValidPassword = admin.password === password;
-    
+    // Password check - support both bcrypt-hashed and plain-text stored passwords
+    const bcrypt = require('bcrypt');
+    let isValidPassword = false;
+
+    try {
+      if (admin.password && typeof admin.password === 'string' && admin.password.startsWith('$2')) {
+        // Likely a bcrypt hash
+        isValidPassword = await bcrypt.compare(password, admin.password);
+        console.log('🔐 Used bcrypt.compare for password verification');
+      } else {
+        // Fallback to plain-text comparison (legacy/emergency)
+        isValidPassword = admin.password === password;
+        console.log('🔐 Used plain-text comparison for password verification');
+      }
+    } catch (pwErr) {
+      console.error('❌ Password verification error:', pwErr.message);
+      // Fall back to simple equality if bcrypt fails for some reason
+      isValidPassword = admin.password === password;
+    }
+
     if (!isValidPassword) {
       console.log('❌ Invalid password');
       return res.status(401).json({
