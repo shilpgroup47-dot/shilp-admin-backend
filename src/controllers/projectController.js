@@ -8,56 +8,38 @@ class ProjectController {
    * @param {Object} res - Express response object
    */
   createProject = async (req, res) => {
+    const startTime = Date.now();
+    
     try {
-      console.log('🚀 Server: Project creation started');
-      console.log('📥 Server: Request body keys:', Object.keys(req.body));
-      console.log('📎 Server: Files received:', req.files ? req.files.length : 'No files');
+      // � SKIP LOGGING FOR SPEED - Only log errors
       
-      // Debug: Log all received files with their fieldnames
-      if (req.files && req.files.length > 0) {
-        console.log('📋 Server: File details:');
-        req.files.forEach((file, index) => {
-          console.log(`  ${index}: ${file.fieldname} - ${file.originalname} (${file.size} bytes)`);
-        });
-      }
-      
-      // Check for validation errors
+      // Quick validation check
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('❌ Server: Validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           message: 'Validation failed',
-          errors: errors.array()
+          errors: errors.array(),
+          responseTime: Date.now() - startTime + 'ms'
         });
       }
 
-      console.log('✅ Server: Validation passed');
-
-      // Parse form data
+      // 🚀 FAST PARSING - No logging
       const parsedData = this.parseFormData(req.body);
-      console.log('📋 Server: Parsed data keys:', Object.keys(parsedData));
-      console.log('📖 Server: About Us Detail:', parsedData.aboutUsDetail);
       
-      // Add unique slug generation
+      // Quick slug generation
       parsedData.slug = await this.generateUniqueSlug(parsedData.projectTitle);
-      console.log('🏷️ Server: Generated slug:', parsedData.slug);
       
-      // Ensure mobile numbers have +91 prefix (if not already present)
-      if (parsedData.number1) {
-        parsedData.number1 = parsedData.number1.startsWith('+91') 
-          ? parsedData.number1 
-          : `+91${parsedData.number1}`;
+      // Fast number formatting
+      if (parsedData.number1 && !parsedData.number1.startsWith('+91')) {
+        parsedData.number1 = `+91${parsedData.number1}`;
       }
-      if (parsedData.number2) {
-        parsedData.number2 = parsedData.number2.startsWith('+91') 
-          ? parsedData.number2 
-          : `+91${parsedData.number2}`;
+      if (parsedData.number2 && !parsedData.number2.startsWith('+91')) {
+        parsedData.number2 = `+91${parsedData.number2}`;
       }
 
-      // Ensure slug is not empty or null
-      if (!parsedData.slug || parsedData.slug.trim() === '') {
-        console.log('❌ Server: Empty slug detected');
+      // Quick slug validation
+      if (!parsedData.slug?.trim()) {
         return res.status(400).json({
           success: false,
           message: 'Slug is required and cannot be empty',

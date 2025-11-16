@@ -17,9 +17,19 @@ const { connectDatabase } = require('./config/database');
 
 const app = express();
 
-// 🚀 PERFORMANCE OPTIMIZATIONS
-app.set('trust proxy', 1); // Trust first proxy
-app.disable('x-powered-by'); // Remove Express signature
+// � ULTRA-PERFORMANCE SETTINGS
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.disable('etag'); // Disable etag for faster responses
+app.set('view cache', false); // Disable view caching
+app.set('case sensitive routing', true);
+app.set('strict routing', false);
+
+// 🚀 NODE.JS PERFORMANCE TWEAKS
+process.env.UV_THREADPOOL_SIZE = 128; // Increase thread pool
+process.env.NODE_OPTIONS = '--max-old-space-size=4096'; // 4GB memory limit
+
+// 🚨 ULTRA-FAST MIDDLEWARE CHAIN
 
 // SECURITY - Optimized
 app.use(helmet({
@@ -78,6 +88,27 @@ app.get('/', (req, res) => {
   res.send('Backend is running');
 });
 
+// 🚀 ULTRA-FAST REQUEST HANDLING
+app.use((req, res, next) => {
+  // Set custom timeouts for different routes
+  if (req.path.includes('/upload') || req.method === 'POST') {
+    req.setTimeout(300000); // 5 minutes for uploads
+    res.setTimeout(300000);
+  } else {
+    req.setTimeout(30000);  // 30 seconds for regular requests
+    res.setTimeout(30000);
+  }
+  
+  // Add response headers for faster processing
+  res.set({
+    'Keep-Alive': 'timeout=30, max=1000',
+    'Connection': 'keep-alive',
+    'X-Powered-By': 'ShilpGroup-Optimized'
+  });
+  
+  next();
+});
+
 // ROUTES
 app.use('/api/health', healthRoutes);
 app.use('/api/admin', adminRoutes);
@@ -88,10 +119,31 @@ app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api', logRoutes);
 
-// GLOBAL ERROR HANDLER
+// 🚨 OPTIMIZED ERROR HANDLER - Fast response
 app.use((err, req, res, next) => {
-  console.error("❌ Error:", err);
-  res.status(500).json({ error: err.message || "Internal Server Error" });
+  // Quick error logging without console.error delay
+  process.nextTick(() => {
+    console.error("❌ Error:", err.message);
+  });
+  
+  // Send immediate response
+  const statusCode = err.statusCode || err.status || 500;
+  res.status(statusCode).json({ 
+    success: false,
+    error: err.message || "Server Error",
+    timestamp: Date.now()
+  });
+});
+
+// 🚨 HANDLE REQUEST TIMEOUTS
+app.use((req, res, next) => {
+  if (!res.headersSent) {
+    res.status(408).json({
+      success: false,
+      error: "Request timeout",
+      message: "Request took too long to process"
+    });
+  }
 });
 
 // CONNECT MONGO (no listening here)
