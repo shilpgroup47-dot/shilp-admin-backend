@@ -26,49 +26,15 @@ app.use(helmet());
 app.use(compression());
 
 // --------------------------------------------------
-//  ⭐ CORS CONFIG — ULTRA-PERMISSIVE FOR DEVELOPMENT
+//  ⭐ CORS CONFIG — COMPLETELY OPEN FOR PRODUCTION
 // --------------------------------------------------
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['http://localhost:5174', 'http://localhost:5173', 'http://localhost:3000'];
-
-console.log('🔍 Allowed Origins:', allowedOrigins);
 console.log('🌍 Environment:', process.env.NODE_ENV);
+console.log('� CORS: All origins allowed - No restrictions');
 
-// More permissive CORS for development
+// Ultra-permissive CORS - Allow ANY origin for production
 app.use(
   cors({
-    origin: function (origin, callback) {
-      console.log(`🔍 Request from origin: ${origin}`);
-      
-      // Allow requests with no origin (mobile apps, Postman, etc.)
-      if (!origin) {
-        console.log('✅ No origin - allowing request');
-        return callback(null, true);
-      }
-
-      // Always allow localhost in development
-      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        console.log('✅ Localhost origin - allowing request');
-        return callback(null, true);
-      }
-
-      // Check configured origins
-      if (allowedOrigins.includes(origin)) {
-        console.log('✅ Origin in allowed list - allowing request');
-        return callback(null, true);
-      }
-
-      // In development, be more permissive
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('✅ Development mode - allowing request');
-        return callback(null, true);
-      }
-
-      console.log(`❌ Origin blocked by CORS: ${origin}`);
-      console.log('📋 Allowed origins:', allowedOrigins);
-      return callback(new Error(`Not allowed by CORS: ${origin}`));
-    },
+    origin: true, // Allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
@@ -78,25 +44,19 @@ app.use(
   })
 );
 
-// Allow OPTIONS for all routes with detailed logging
+// Allow OPTIONS for all routes
 app.options('*', (req, res) => {
-  console.log(`🔄 OPTIONS request from: ${req.headers.origin}`);
-  
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  
-  console.log('✅ OPTIONS response sent');
+  res.header('Access-Control-Max-Age', '86400');
   res.sendStatus(204);
 });
+      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+        console.log('✅ Localhost origin - allowing request');
+        return callback(null, true);
+      }
 
 // --------------------------------------------------
 //  ⭐ BODY PARSER
@@ -112,14 +72,8 @@ const uploadDir = process.env.UPLOAD_DIR || 'uploads';
 app.use(
   '/uploads',
   (req, res, next) => {
-    const origin = req.headers.origin;
-
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      res.header('Access-Control-Allow-Origin', '*');
-    }
-
+    // Allow all origins for uploads
+    res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
