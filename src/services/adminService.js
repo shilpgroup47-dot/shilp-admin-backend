@@ -34,6 +34,7 @@ class AdminService {
         email: admin.email,
         username: admin.username,
         role: admin.role,
+        type: 'admin', // ⭐ IMPORTANT: Add type field for middleware
         permissions: admin.permissions || [
           'users.read', 'users.write', 'users.delete',
           'analytics.read', 'settings.read', 'settings.write',

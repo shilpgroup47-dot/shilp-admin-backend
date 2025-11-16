@@ -1,0 +1,47 @@
+#!/bin/bash
+
+echo "🚨 URGENT: Production server needs to be updated!"
+echo ""
+echo "Problem: Authentication middleware is blocking admin access"
+echo "Solution: Upload these 2 fixed files to production server"
+echo ""
+
+echo "📁 Files to upload to cPanel File Manager:"
+echo ""
+echo "1️⃣  src/services/adminService.js"
+echo "   ↳ Fixed: Added 'type: admin' to JWT token payload"
+echo ""
+echo "2️⃣  src/middleware/adminAuth.js" 
+echo "   ↳ Fixed: Removed strict type checking that was causing 403 errors"
+echo ""
+
+echo "🚀 Upload Steps:"
+echo "1. Go to cPanel → File Manager"
+echo "2. Navigate to: /public_html/backend.shilpgroup.com/"
+echo "3. Upload these files (overwrite existing):"
+echo "   • src/services/adminService.js"
+echo "   • src/middleware/adminAuth.js"
+echo ""
+
+echo "🔄 Restart Steps:"
+echo "1. Go to cPanel → Setup Node.js App"
+echo "2. Find your app (backend.shilpgroup.com)"
+echo "3. Click 'Restart' button"
+echo ""
+
+echo "✅ Test After Upload:"
+echo "• Login should work: POST /api/admin/login"
+echo "• Profile should work: GET /api/admin/profile (with JWT token)"
+echo "• All admin APIs should work with proper JWT token"
+echo ""
+
+echo "🔧 Alternative: If you have terminal access:"
+echo "   cd /public_html/backend.shilpgroup.com"
+echo "   # Upload the files first, then:"
+echo "   pm2 restart all"
+echo "   # OR"
+echo "   killall node && node src/server.js"
+echo ""
+
+echo "⚠️  Current Issue: Production server has old middleware code"
+echo "🎯 Fix: Upload the 2 files above and restart Node.js app"
