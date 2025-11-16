@@ -26,37 +26,43 @@ app.use(helmet());
 app.use(compression());
 
 // --------------------------------------------------
-//  ⭐ CORS CONFIG — COMPLETELY OPEN FOR PRODUCTION
+//  ⭐ CORS CONFIG — SIMPLE 3 DOMAINS ONLY
 // --------------------------------------------------
-console.log('🌍 Environment:', process.env.NODE_ENV);
-console.log('� CORS: All origins allowed - No restrictions');
+const allowedOrigins = [
+  'https://admin.shilpgroup.com',
+  'https://shilpgroup.com',
+  'https://backend.shilpgroup.com'
+];
 
-// Ultra-permissive CORS - Allow ANY origin for production
+// Simple CORS - Only 3 specific domains
 app.use(
   cors({
-    origin: true, // Allow all origins
+    origin: allowedOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    exposedHeaders: ['Content-Length', 'X-Requested-With'],
-    preflightContinue: false,
     optionsSuccessStatus: 204
   })
 );
 
-// Allow OPTIONS for all routes
+// Simple OPTIONS handler
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  
+  const origin = req.headers.origin;
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
   res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  console.log('✅ OPTIONS response sent');
   res.sendStatus(204);
 });
-      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        console.log('✅ Localhost origin - allowing request');
-        return callback(null, true);
-      }
 
 // --------------------------------------------------
 //  ⭐ BODY PARSER
@@ -72,8 +78,12 @@ const uploadDir = process.env.UPLOAD_DIR || 'uploads';
 app.use(
   '/uploads',
   (req, res, next) => {
-    // Allow all origins for uploads
-    res.header('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin;
+
+    if (origin && allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+    }
+
     res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
