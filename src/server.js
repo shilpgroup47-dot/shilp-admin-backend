@@ -12,101 +12,43 @@ const publicRoutes = require('./routes/publicRoutes');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/adminRoutes');
 const logRoutes = require('./routes/logRoutes');
-// const testRoutes = require('./routes/testRoutes'); // Temporarily disabled
 
 const { connectDatabase } = require('./config/database');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// --------------------------------------------------
-//  ⭐ SECURITY
-// --------------------------------------------------
+// SECURITY
 app.use(helmet());
 app.use(compression());
 
-// --------------------------------------------------
-//  ⭐ CORS CONFIG — SIMPLE 3 DOMAINS ONLY
-// --------------------------------------------------
+// SIMPLE CORS (Only 3 domains)
 const allowedOrigins = [
   'https://admin.shilpgroup.com',
   'https://shilpgroup.com',
   'https://backend.shilpgroup.com'
 ];
 
-// Simple CORS - Only 3 specific domains
-app.use(
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    optionsSuccessStatus: 204
-  })
-);
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 
-// Simple OPTIONS handler
-app.options('*', (req, res) => {
-  
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Accept,Origin');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  
-  console.log('✅ OPTIONS response sent');
-  res.sendStatus(204);
-});
+app.options('*', cors());
 
-// --------------------------------------------------
-//  ⭐ BODY PARSER
-// --------------------------------------------------
+// BODY PARSER
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-// --------------------------------------------------
-//  ⭐ STATIC UPLOADS (CORS FIXED)
-// --------------------------------------------------
+// UPLOADS
 const uploadDir = process.env.UPLOAD_DIR || 'uploads';
+app.use('/uploads', express.static(uploadDir));
 
-app.use(
-  '/uploads',
-  (req, res, next) => {
-    const origin = req.headers.origin;
-
-    if (origin && allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    }
-
-    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-    res.header('Cross-Origin-Embedder-Policy', 'unsafe-none');
-
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
-    next();
-  },
-  express.static(uploadDir)
-);
-
-// --------------------------------------------------
-//  ⭐ ROOT QUICK TEST ENDPOINT
-//   Simple plain-text response so visiting / shows a lightweight
-//   confirmation (useful for load-balancers, uptime checks).
-// --------------------------------------------------
+// ROOT TEST
 app.get('/', (req, res) => {
-  res.status(200).send('Test server is running');
+  res.send('Backend is running');
 });
 
-// --------------------------------------------------
-//  ⭐ API ROUTES
-// --------------------------------------------------
+// ROUTES
 app.use('/api/health', healthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/public', publicRoutes);
@@ -115,57 +57,19 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api', logRoutes);
-// app.use('/api/test', testRoutes); // Temporarily disabled
 
-// --------------------------------------------------
-//  ⭐ GLOBAL ERROR HANDLER
-// --------------------------------------------------
+// GLOBAL ERROR HANDLER
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err.message);
-
-  res.status(err.statusCode || 500).json({
-    success: false,
-    error: {
-      message: err.message || 'Internal server error',
-    },
-  });
+  console.error("❌ Error:", err);
+  res.status(500).json({ error: err.message || "Internal Server Error" });
 });
 
-// --------------------------------------------------
-//  ⭐ START SERVER
-// --------------------------------------------------
-const startServer = async () => {
-  try {
-    await connectDatabase();
-    console.log('✅ MongoDB Connected');
+// CONNECT MONGO (no listening here)
+connectDatabase()
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch(err => console.error("❌ MongoDB Error:", err));
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-    });
-  } catch (error) {
-    console.error('❌ Server start failed:', error.message);
-    process.exit(1);
-  }
-};
-
-// --------------------------------------------------
-//  ⭐ PROCESS ERROR HANDLERS
-// --------------------------------------------------
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err.message);
-  process.exit(1);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err.message);
-  process.exit(1);
-});
-
-process.on('SIGTERM', () => process.exit(0));
-process.on('SIGINT', () => process.exit(0));
-
-// --------------------------------------------------
-startServer();
+// ❗❗ DO NOT ADD app.listen()
+// cPanel starts the server automatically
 
 module.exports = app;
