@@ -25,7 +25,8 @@ app.use(compression());
 const allowedOrigins = [
   'https://admin.shilpgroup.com',
   'https://shilpgroup.com',
-  'https://backend.shilpgroup.com'
+  'https://backend.shilpgroup.com',
+  'http://localhost:5174'
 ];
 
 app.use(cors({
