@@ -1,0 +1,35 @@
+---
+deployment:
+  tasks:
+    # Set deployment path - Updated for your cPanel structure
+    - export DEPLOYPATH=/home/shilfmfe/server_running/backend.shilpgroup.com
+    
+    # Backup existing uploads directory (preserve user files)
+    - if [ -d "$DEPLOYPATH/uploads" ]; then cp -R $DEPLOYPATH/uploads $DEPLOYPATH/uploads_backup_$(date +%Y%m%d_%H%M%S); fi
+    
+    # Copy new code (excluding uploads directory)
+    - rsync -av --exclude='uploads/' --exclude='node_modules/' --exclude='.git/' . $DEPLOYPATH/
+    - /bin/cp .env.production $DEPLOYPATH/.env
+    
+    # Restore uploads directory (keep existing user files)
+    - if [ -d "$DEPLOYPATH/uploads_backup_*" ]; then cp -R $DEPLOYPATH/uploads_backup_*/* $DEPLOYPATH/uploads/ 2>/dev/null || true; fi
+    
+    # Create uploads directory structure if it doesn't exist
+    - mkdir -p $DEPLOYPATH/uploads/banners
+    - mkdir -p $DEPLOYPATH/uploads/blogs
+    - mkdir -p $DEPLOYPATH/uploads/projects
+    - mkdir -p $DEPLOYPATH/uploads/projecttree
+    
+    # Set proper permissions
+    - chmod 755 $DEPLOYPATH/uploads
+    - chmod 755 $DEPLOYPATH/uploads/*
+    
+    # Install Node.js dependencies
+    - cd $DEPLOYPATH
+    - npm ci --production
+    
+    # Cleanup old backups (keep only latest 3)
+    - find $DEPLOYPATH -name "uploads_backup_*" -type d | sort | head -n -3 | xargs rm -rf
+    
+    # Restart Node.js application
+    - cd $DEPLOYPATH && node src/server.js
