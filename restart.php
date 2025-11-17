@@ -16,7 +16,7 @@ $allowed_ips = [
 
 // Allow requests from backend.shilpgroup.com domain and localhost
 $allowed_hosts = [
-    'backend.shilpgroup.com',
+    'https://backend.shilpgroup.com',
     'www.backend.shilpgroup.com',
     'localhost',
     '127.0.0.1'
