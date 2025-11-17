@@ -18,7 +18,6 @@ const connectDatabase = async () => {
       maxIdleTimeMS: 30000,     // Close connections after 30 seconds of inactivity
       serverSelectionTimeoutMS: 10000,  // How long to try selecting a server
       socketTimeoutMS: 45000,   // How long a send or receive on a socket can take
-      bufferMaxEntries: 0,      // Disable mongoose buffering
       bufferCommands: false,    // Disable mongoose buffering for commands
       autoIndex: false,         // Don't build indexes in production
       readPreference: 'secondaryPreferred'  // Read from secondary when possible
