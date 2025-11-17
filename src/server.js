@@ -1,7 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const compression = require('compression');
 require('dotenv').config();
 
 const bannerRoutes = require('./routes/bannerRoutes');
@@ -17,45 +15,37 @@ const { connectDatabase } = require('./config/database');
 
 const app = express();
 
-// SECURITY
-app.use(helmet());
-app.use(compression());
-
-// CORS (only allowed domains)
+// -------- CORS (Only these domains allowed) --------
 const allowedOrigins = [
-  'https://admin.shilpgroup.com',
-  'https://shilpgroup.com',
-  'https://backend.shilpgroup.com'
+  "https://admin.shilpgroup.com",
+  "https://shilpgroup.com",
+  "https://backend.shilpgroup.com",
+  "http://localhost:5174",
 ];
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("Not allowed by CORS"));
+  },
   credentials: true
 }));
 
-app.options('*', cors());
+// -------- Body Parser --------
+app.use(express.json({ limit: "150mb" }));
+app.use(express.urlencoded({ extended: true, limit: "150mb" }));
 
-// BODY PARSING
-app.use(express.json({ 
-  limit: '150mb',           // Increased for large images
-  strict: false,            // Allow any JSON-parseable type
-  type: 'application/json'
-}));
-app.use(express.urlencoded({ 
-  extended: true, 
-  limit: '150mb',           // Increased for large images
-  parameterLimit: 100000    // Increased parameter limit
-}));
-
-// STATIC FILES
+// -------- Static --------
 app.use('/uploads', express.static('uploads'));
 
-// ROOT
+// -------- Test Route --------
 app.get('/', (req, res) => {
-  res.send("Backend is running");
+  res.status(200).send("Backend is running");
 });
 
-// ROUTES
+// -------- API Routes --------
 app.use('/api/health', healthRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/public', publicRoutes);
@@ -65,16 +55,16 @@ app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api', logRoutes);
 
-// GLOBAL ERROR HANDLER
+// -------- Error Handler --------
 app.use((err, req, res, next) => {
-  console.error("❌ Error:", err);
-  res.status(500).json({ error: err.message });
+  console.error("❌ Error:", err.message);
+  res.status(500).json({ success:false, error: err.message });
 });
 
-// CONNECT MONGO ONLY
+// -------- Connect DB Only --------
 connectDatabase()
   .then(() => console.log("✅ MongoDB Connected"))
-  .catch(err => console.error("❌ MongoDB Error:", err));
+  .catch(err => console.error("❌ MongoDB error:", err));
 
-// DO NOT USE app.listen() - cPanel does this
+// ❗ IMPORTANT: DO NOT USE app.listen() on cPanel
 module.exports = app;
