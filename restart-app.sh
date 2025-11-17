@@ -36,15 +36,42 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 # Kill any remaining node processes for this app
-pkill -f "node src/server.js" 2>/dev/null && log_message "🧹 Cleaned up remaining processes"
+pkill -f "node app.js" 2>/dev/null && log_message "🧹 Cleaned up remaining processes"
+pkill -f "node src/server.js" 2>/dev/null && log_message "🧹 Cleaned up remaining server processes"
 
 # Set environment variables
 export NODE_ENV=production
 export PORT=8081
 
-# Start new process
-log_message "🚀 Starting new Node.js process..."
-nohup node src/server.js > /home/shilfmfe/logs/app.log 2>&1 &
+# Create logs directory if it doesn't exist
+mkdir -p /home/shilfmfe/logs
+
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+    log_message "📦 Installing dependencies..."
+    npm install --production 2>&1 | tee -a $LOG_FILE
+fi
+
+# Check if app.js exists
+if [ ! -f "app.js" ]; then
+    log_message "❌ app.js not found in $APP_PATH"
+    echo "ERROR: app.js not found"
+    exit 1
+fi
+
+# Check if .env file exists, create from example if needed
+if [ ! -f ".env" ]; then
+    if [ -f ".env.example" ]; then
+        cp .env.example .env
+        log_message "📋 Created .env from .env.example"
+    else
+        log_message "⚠️ No .env or .env.example file found"
+    fi
+fi
+
+# Start new process using app.js (cPanel entry point)
+log_message "🚀 Starting new Node.js process with app.js..."
+nohup node app.js > /home/shilfmfe/logs/app.log 2>&1 &
 NEW_PID=$!
 
 # Save new PID
