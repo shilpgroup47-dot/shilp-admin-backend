@@ -291,7 +291,6 @@ projectSchema.statics.findByState = function(state) {
 // 🚀 PERFORMANCE OPTIMIZATIONS
 
 // Indexes for faster queries
-projectSchema.index({ slug: 1 }, { unique: true }); // Unique index for slug
 projectSchema.index({ projectType: 1, isActive: 1 }); // Compound index for type filtering
 projectSchema.index({ projectState: 1, isActive: 1 }); // Compound index for state filtering
 projectSchema.index({ createdAt: -1 }); // Index for sorting by creation date

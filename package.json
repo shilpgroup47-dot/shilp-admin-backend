@@ -2,7 +2,7 @@
   "name": "shilp-admin-server",
   "version": "1.0.0",
   "description": "Node.js server for Shilp Admin application",
-  "main": "src/server.js",
+  "main": "app.js",
   "scripts": {
     "start": "node src/server.js",
     "start:production": "NODE_ENV=production node src/server.js",

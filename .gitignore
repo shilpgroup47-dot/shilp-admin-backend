@@ -152,3 +152,24 @@ out/
 .dockerignore
 Dockerfile
 docker-compose.yml
+
+# Development and testing files
+server-local.js
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Script files that are not needed for production
+BANNER-UPLOAD-FIX.sh
+COMPLETE-API-LIST.md
+EMERGENCY-SPEED-FIX.sh
+FINAL-OPTIMIZATION-GUIDE.sh
+PERFORMANCE-OPTIMIZATION-COMPLETE.sh
+PRODUCTION-DEPLOYMENT-GUIDE.sh
+emergency-admin.js
+fix-production-auth.sh
+fix-server.sh
+
+# Deployment guides and documentation
+CPANEL-DEPLOYMENT-FIX.md
