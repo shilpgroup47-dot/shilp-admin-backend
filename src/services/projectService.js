@@ -405,10 +405,10 @@ class ProjectService {
         }
       }
 
-      // Process banner section images
-      // Desktop banner image
-      if (files.desktopBannerFile && files.desktopBannerFile[0]) {
-        const desktopBannerPath = await this.saveFile(files.desktopBannerFile[0], uploadDir, 'banner-desktop', projectFolderName);
+      // Process banner section images - FIXED field names
+      // Desktop banner image (frontend sends 'desktopBanner')
+      if (files.desktopBanner && files.desktopBanner[0]) {
+        const desktopBannerPath = await this.saveFile(files.desktopBanner[0], uploadDir, 'banner-desktop', projectFolderName);
         
         if (!processedData.bannerSection) {
           processedData.bannerSection = {
@@ -425,9 +425,9 @@ class ProjectService {
         }
       }
 
-      // Mobile banner image
-      if (files.mobileBannerFile && files.mobileBannerFile[0]) {
-        const mobileBannerPath = await this.saveFile(files.mobileBannerFile[0], uploadDir, 'banner-mobile', projectFolderName);
+      // Mobile banner image (frontend sends 'mobileBanner')
+      if (files.mobileBanner && files.mobileBanner[0]) {
+        const mobileBannerPath = await this.saveFile(files.mobileBanner[0], uploadDir, 'banner-mobile', projectFolderName);
         
         if (!processedData.bannerSection) {
           processedData.bannerSection = {
