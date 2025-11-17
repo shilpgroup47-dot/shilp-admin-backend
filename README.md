@@ -88,7 +88,7 @@ src/
 │   └── User.js             # User model
 ├── routes/
 │   ├── auth.js             # Authentication routes
-│   ├── health.js           # Health check routes
+│   ├── health.js           # Health check route
 │   └── users.js            # User routes
 ├── services/               # Business logic
 ├── utils/                  # Utility functions
