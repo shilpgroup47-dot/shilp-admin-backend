@@ -15,7 +15,6 @@ const { connectDatabase } = require('./config/database');
 
 const app = express();
 
-// -------- CORS (Only these domains allowed) --------
 const allowedOrigins = [
   "https://admin.shilpgroup.com",
   "https://shilpgroup.com",
@@ -59,12 +58,18 @@ app.use('/api', logRoutes);
 app.use((err, req, res, next) => {
   console.error("❌ Error:", err.message);
   res.status(500).json({ success:false, error: err.message });
-});
-
-// -------- Connect DB Only --------
+})
 connectDatabase()
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.error("❌ MongoDB error:", err));
 
 // ❗ IMPORTANT: DO NOT USE app.listen() on cPanel
+// When run directly (development), start the HTTP server so `npm start` keeps the process alive.
+if (require.main === module) {
+  const port = process.env.PORT || 5000;
+  app.listen(port, () => {
+    console.log(`🚀 Server listening on http://localhost:${port}`);
+  });
+}
+
 module.exports = app;

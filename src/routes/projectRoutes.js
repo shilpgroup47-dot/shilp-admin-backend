@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const projectController = require('../controllers/projectController');
 const projectValidation = require('../middleware/projectValidation');
 const adminAuth = require('../middleware/adminAuth');

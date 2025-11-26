@@ -9,7 +9,7 @@ class ProjectService {
    * @param {Object} files - Uploaded files
    * @returns {Promise<Object>} Created project
    */
-  async createProject(projectData, files = {}) {
+  async createProject(projectData, files = {}, isDraft = false) {
     let savedFiles = []; // Track saved files for cleanup
     
     try {
@@ -29,8 +29,8 @@ class ProjectService {
       // Extract saved file paths for cleanup if needed
       savedFiles = this.extractSavedFilePaths(processedData);
 
-      // Create project
-      const project = await projectRepository.create(processedData);
+      // Create project. When saving drafts, skip Mongoose validation so partial saves succeed.
+      const project = await projectRepository.create(processedData, { validateBeforeSave: isDraft ? false : true });
       
       
       return {
@@ -176,7 +176,7 @@ class ProjectService {
    * @param {Object} files - New uploaded files
    * @returns {Promise<Object>} Updated project
    */
-  async updateProject(id, updateData, files = {}) {
+  async updateProject(id, updateData, files = {}, isDraft = false) {
     let newSavedFiles = []; // Track new files for cleanup
     
     try {
@@ -205,8 +205,8 @@ class ProjectService {
       // Extract only new file paths (excluding existing ones)
       newSavedFiles = this.extractNewFilePaths(finalData, existingProject);
 
-      // Update project
-      const updatedProject = await projectRepository.update(id, finalData);
+      // Update project. When updating a draft, skip validators to allow partial updates.
+      const updatedProject = await projectRepository.update(id, finalData, { runValidators: isDraft ? false : true });
       
       return {
         success: true,
@@ -610,8 +610,29 @@ class ProjectService {
       const fileName = `${prefix}_${timestamp}_${randomStr}${fileExtension}`;
       const filePath = path.join(uploadDir, fileName);
 
-      // Write file to disk
-      await fs.writeFile(filePath, file.buffer);
+      // If multer stored the file on disk, move/copy it to our project folder
+      const srcPath = file.path || (file.destination && file.filename ? path.join(file.destination, file.filename) : null);
+
+      if (srcPath) {
+        try {
+          await fs.rename(srcPath, filePath);
+        } catch (err) {
+          // If rename fails (cross-device), fallback to copy + unlink
+          try {
+            await fs.copyFile(srcPath, filePath);
+            try { await fs.unlink(srcPath); } catch (e) {}
+          } catch (copyErr) {
+            console.error('❌ Failed to move/copy uploaded file', { srcPath, file, err: copyErr.message });
+            throw copyErr;
+          }
+        }
+      } else if (file.buffer) {
+        // Write file buffer to disk (memory storage)
+        await fs.writeFile(filePath, file.buffer);
+      } else {
+        console.error('❌ No file data available on multer file object', file);
+        throw new Error('No file data available to save');
+      }
 
       // Return relative path for database storage
       return path.join('uploads', 'projects', projectFolderName, fileName).replace(/\\/g, '/');

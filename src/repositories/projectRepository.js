@@ -6,10 +6,12 @@ class ProjectRepository {
    * @param {Object} projectData - Project data to create
    * @returns {Promise<Object>} Created project
    */
-  async create(projectData) {
+  async create(projectData, options = {}) {
     try {
       const project = new Project(projectData);
-      return await project.save();
+      // Allow caller to skip validation for draft saves
+      const validateBeforeSave = options.validateBeforeSave === false ? false : true;
+      return await project.save({ validateBeforeSave });
     } catch (error) {
       throw new Error(`Failed to create project: ${error.message}`);
     }
@@ -127,12 +129,13 @@ class ProjectRepository {
    * @param {Object} updateData - Data to update
    * @returns {Promise<Object|null>} Updated project
    */
-  async update(id, updateData) {
+  async update(id, updateData, options = {}) {
     try {
+      const runValidators = options.runValidators === false ? false : true;
       return await Project.findByIdAndUpdate(
         id,
         { ...updateData, updatedAt: new Date() },
-        { new: true, runValidators: true }
+        { new: true, runValidators }
       );
     } catch (error) {
       throw new Error(`Failed to update project: ${error.message}`);

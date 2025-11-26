@@ -38,8 +38,28 @@ class ProjectController {
         parsedData.number2 = `+91${parsedData.number2}`;
       }
 
-      // Quick slug validation
-      if (!parsedData.slug?.trim()) {
+      // Check if this is a draft save (allows partial data)
+      const isDraft = req.query && req.query.draft === 'true';
+
+      // For drafts, ensure we have a projectTitle and slug (generate defaults if missing)
+      if (isDraft) {
+        if (!parsedData.projectTitle || !parsedData.projectTitle.trim()) {
+          parsedData.projectTitle = `Draft ${Date.now()}`;
+        }
+        if (!parsedData.slug || !parsedData.slug.trim()) {
+          parsedData.slug = this.generateSlug(parsedData.projectTitle);
+        }
+        // Provide sensible defaults for required fields so Mongoose validation does not fail
+        if (!parsedData.projectState) parsedData.projectState = 'on-going';
+        if (!parsedData.projectType) parsedData.projectType = 'residential';
+        if (!parsedData.shortAddress) parsedData.shortAddress = 'Draft address';
+        if (parsedData.projectStatusPercentage === undefined || parsedData.projectStatusPercentage === null) parsedData.projectStatusPercentage = 0;
+        if (!parsedData.aboutUsDetail) parsedData.aboutUsDetail = {};
+        if (!parsedData.aboutUsDetail.description1 || !parsedData.aboutUsDetail.description1.trim()) parsedData.aboutUsDetail.description1 = 'Draft description';
+      }
+
+      // Quick slug validation for non-draft requests
+      if (!isDraft && !parsedData.slug?.trim()) {
         return res.status(400).json({
           success: false,
           message: 'Slug is required and cannot be empty',
@@ -61,8 +81,8 @@ class ProjectController {
         console.log('📁 Server: Organized files:', Object.keys(organizedFiles));
       }
       
-      // Create project with uploaded files
-      const result = await projectService.createProject(parsedData, organizedFiles);
+      // Create project with uploaded files; pass draft flag so service can skip validation when needed
+      const result = await projectService.createProject(parsedData, organizedFiles, isDraft);
       console.log('✅ Server: Project created successfully:', result);
 
       res.status(201).json(result);
@@ -284,6 +304,8 @@ class ProjectController {
 
       // Parse array data from form
       const updateData = this.parseFormData(req.body);
+      // Detect draft flag for updates as well
+      const isDraft = req.query && req.query.draft === 'true';
       
       console.log('🔧 Server: Update project files received:', req.files ? req.files.length : 'No files');
       
@@ -307,8 +329,8 @@ class ProjectController {
         console.log('📁 Server: Organized update files:', Object.keys(organizedFiles));
       }
 
-      // Update project with uploaded files
-      const result = await projectService.updateProject(id, updateData, organizedFiles);
+      // Update project with uploaded files; pass draft flag to allow partial updates
+      const result = await projectService.updateProject(id, updateData, organizedFiles, isDraft);
 
       res.json(result);
     } catch (error) {

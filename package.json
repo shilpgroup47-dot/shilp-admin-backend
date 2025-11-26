@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "start:production": "NODE_ENV=production node src/server.js",
+    "start:dev": "node local-server.js",
     "build": "npm ci --production",
     "deploy": "npm run build && npm run start:production",
     "restart": "./restart-app.sh",
