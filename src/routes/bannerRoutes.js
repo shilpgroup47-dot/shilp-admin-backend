@@ -126,6 +126,15 @@ router.put('/:section/alt', authenticateAdmin, bannerController.updateBannerAlt)
 // Update blogsDetail title and description
 router.put('/blogsDetail/text', authenticateAdmin, bannerController.updateBlogsDetailText);
 
+// Update commercial title and description
+router.put('/commercialBanner/text', authenticateAdmin, bannerController.updateCommercialText);
+
+// Update residential title and description  
+router.put('/residentialBanner/text', authenticateAdmin, bannerController.updateResidentialText);
+
+// Update plots title and description
+router.put('/plotBanner/text', authenticateAdmin, bannerController.updatePlotsText);
+
 // Delete banner image for specific section and field
 router.delete('/:section/:field', authenticateAdmin, bannerController.deleteBannerImage);
 

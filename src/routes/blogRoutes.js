@@ -74,6 +74,20 @@ router.post("/", verifyToken, upload.fields(uploadFields), blogController.create
 router.get("/", verifyToken, blogController.getAllBlogs);
 
 /**
+ * @route   GET /api/blogs/public
+ * @desc    Get all published blogs (public access)
+ * @access  Public (for frontend display)
+ */
+router.get("/public", blogController.getAllPublicBlogs);
+
+/**
+ * @route   GET /api/blogs/all
+ * @desc    Get all blogs including drafts (public access for frontend)
+ * @access  Public (for frontend display)
+ */
+router.get("/all", blogController.getAllPublicBlogs);
+
+/**
  * @route   GET /api/blogs/url/:url
  * @desc    Get a blog by URL slug
  * @access  Public (for frontend display)

@@ -20,13 +20,27 @@ const allowedOrigins = [
   "https://shilpgroup.com",
   "https://backend.shilpgroup.com",
   "http://localhost:5174",
+  "http://localhost:5173", // Add shilp-group dev server
+  "http://localhost:3000",
+  "http://localhost:4173",
+  "http://localhost:8080",
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    
+    // Allow localhost on any port for development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    console.log('CORS blocked origin:', origin);
     return callback(new Error("Not allowed by CORS"));
   },
   credentials: true

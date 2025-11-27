@@ -47,12 +47,31 @@ const createBlog = async (req, res) => {
 };
 
 /**
- * Get all blogs
+ * Get all blogs (admin - requires auth)
  */
 const getAllBlogs = async (req, res) => {
   try {
     const { status } = req.query;
     const blogs = await blogService.getAllBlogs(status);
+
+    res.status(200).json({
+      success: true,
+      data: blogs,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch blogs",
+    });
+  }
+};
+
+/**
+ * Get all published blogs (public - no auth required)
+ */
+const getAllPublicBlogs = async (req, res) => {
+  try {
+    const blogs = await blogService.getAllBlogs('published');
 
     res.status(200).json({
       success: true,
@@ -200,6 +219,7 @@ const deleteBlog = async (req, res) => {
 module.exports = {
   createBlog,
   getAllBlogs,
+  getAllPublicBlogs,
   getBlogById,
   getBlogByUrl,
   updateBlog,

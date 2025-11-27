@@ -172,6 +172,99 @@ exports.updateBlogsDetailText = async (req, res) => {
   }
 };
 
+// Update commercial section title and description
+exports.updateCommercialText = async (req, res) => {
+  const { title, description } = req.body;
+  
+  if (typeof title !== 'string' || typeof description !== 'string') {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Title and description must be strings' 
+    });
+  }
+  
+  try {
+    const updatedBanners = await bannerService.updateSectionText('commercialBanner', title, description);
+    res.json({ 
+      success: true, 
+      message: 'Commercial title and description updated successfully',
+      data: {
+        title,
+        description,
+        banners: updatedBanners
+      }
+    });
+  } catch (err) {
+    console.error('Commercial text update error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update commercial text: ' + err.message 
+    });
+  }
+};
+
+// Update residential section title and description  
+exports.updateResidentialText = async (req, res) => {
+  const { title, description } = req.body;
+  
+  if (typeof title !== 'string' || typeof description !== 'string') {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Title and description must be strings' 
+    });
+  }
+  
+  try {
+    const updatedBanners = await bannerService.updateSectionText('residentialBanner', title, description);
+    res.json({ 
+      success: true, 
+      message: 'Residential title and description updated successfully',
+      data: {
+        title,
+        description,
+        banners: updatedBanners
+      }
+    });
+  } catch (err) {
+    console.error('Residential text update error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update residential text: ' + err.message 
+    });
+  }
+};
+
+// Update plots section title and description
+exports.updatePlotsText = async (req, res) => {
+  const { title, description } = req.body;
+  
+  if (typeof title !== 'string' || typeof description !== 'string') {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Title and description must be strings' 
+    });
+  }
+  
+  try {
+    const updatedBanners = await bannerService.updateSectionText('plotBanner', title, description);
+    res.json({ 
+      success: true, 
+      message: 'Plots title and description updated successfully',
+      data: {
+        title,
+        description,
+        banners: updatedBanners
+      }
+    });
+  } catch (err) {
+    console.error('Plots text update error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update plots text: ' + err.message 
+    });
+  }
+};
+
 exports.deleteBannerImage = async (req, res) => {
   const { section, field } = req.params;
   const { oldImageUrl } = req.body;

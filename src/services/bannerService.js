@@ -122,6 +122,21 @@ const updateBlogsDetailText = async (title, description) => {
   return result;
 };
 
+// Generic function to update any section's title and description
+const updateSectionText = async (section, title, description) => {
+  const updateData = {
+    title: title || '',
+    description: description || ''
+  };
+  
+  const result = await bannerRepository.updateBannerFields(section, updateData);
+  
+  // Clear cache after data change
+  clearBannersCache();
+  
+  return result;
+};
+
 // Enhanced delete function with better error handling
 const deleteBannerImage = async (section, field, oldImageUrl) => {
   try {
@@ -188,6 +203,7 @@ module.exports = {
   uploadBannerImage,
   updateBannerAlt,
   updateBlogsDetailText,
+  updateSectionText,
   deleteBannerImage,
   clearBannersCache, // Export cache clearing function
 };
