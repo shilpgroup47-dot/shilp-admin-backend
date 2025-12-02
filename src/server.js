@@ -24,6 +24,8 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:4173",
   "http://localhost:8080",
+  "http://demo.shilpgroup.com",
+  "https://demo.shilpgroup.com",
 ];
 
 app.use(cors({
