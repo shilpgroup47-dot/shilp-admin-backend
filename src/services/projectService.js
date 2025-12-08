@@ -360,6 +360,9 @@ class ProjectService {
         if (existingProject && existingProject.brochure) {
           await this.deleteFile(existingProject.brochure);
         }
+      } else if (existingProject?.brochure) {
+        // Preserve existing brochure if no new file uploaded
+        processedData.brochure = existingProject.brochure;
       }
 
       // Process about us image and update aboutUsDetail
@@ -396,6 +399,16 @@ class ProjectService {
         if (processedData.aboutUsDetail && processedData.aboutUsDetail.image) {
           processedData.aboutUsDetail.image.url = '';
         }
+      } else if (existingProject?.aboutUsDetail?.image?.url) {
+        // Preserve existing about us image if no new file uploaded
+        if (!processedData.aboutUsDetail) {
+          processedData.aboutUsDetail = { ...existingProject.aboutUsDetail };
+        } else {
+          if (!processedData.aboutUsDetail.image) {
+            processedData.aboutUsDetail.image = {};
+          }
+          processedData.aboutUsDetail.image.url = existingProject.aboutUsDetail.image.url;
+        }
       } else {
         // No image uploaded, ensure aboutUsDetail structure exists
         if (processedData.aboutUsDetail) {
@@ -411,7 +424,7 @@ class ProjectService {
         const desktopBannerPath = await this.saveFile(files.desktopBanner[0], uploadDir, 'banner-desktop', projectFolderName);
         
         if (!processedData.bannerSection) {
-          processedData.bannerSection = {
+          processedData.bannerSection = existingProject?.bannerSection ? { ...existingProject.bannerSection } : {
             desktopBannerImage: '',
             mobileBannerImage: '',
             alt: ''
@@ -423,6 +436,13 @@ class ProjectService {
         if (existingProject && existingProject.bannerSection && existingProject.bannerSection.desktopBannerImage) {
           await this.deleteFile(existingProject.bannerSection.desktopBannerImage);
         }
+      } else if (existingProject?.bannerSection?.desktopBannerImage) {
+        // Preserve existing desktop banner if no new file uploaded
+        if (!processedData.bannerSection) {
+          processedData.bannerSection = { ...existingProject.bannerSection };
+        } else {
+          processedData.bannerSection.desktopBannerImage = existingProject.bannerSection.desktopBannerImage;
+        }
       }
 
       // Mobile banner image (frontend sends 'mobileBanner')
@@ -430,7 +450,7 @@ class ProjectService {
         const mobileBannerPath = await this.saveFile(files.mobileBanner[0], uploadDir, 'banner-mobile', projectFolderName);
         
         if (!processedData.bannerSection) {
-          processedData.bannerSection = {
+          processedData.bannerSection = existingProject?.bannerSection ? { ...existingProject.bannerSection } : {
             desktopBannerImage: '',
             mobileBannerImage: '',
             alt: ''
@@ -442,6 +462,13 @@ class ProjectService {
         if (existingProject && existingProject.bannerSection && existingProject.bannerSection.mobileBannerImage) {
           await this.deleteFile(existingProject.bannerSection.mobileBannerImage);
         }
+      } else if (existingProject?.bannerSection?.mobileBannerImage) {
+        // Preserve existing mobile banner if no new file uploaded
+        if (!processedData.bannerSection) {
+          processedData.bannerSection = { ...existingProject.bannerSection };
+        } else {
+          processedData.bannerSection.mobileBannerImage = existingProject.bannerSection.mobileBannerImage;
+        }
       }
 
       // Process floor plan images - handle both create and update
@@ -452,29 +479,56 @@ class ProjectService {
           isUpdate: !!existingProject
         });
         
-        let fileIndex = 0;
-        for (let i = 0; i < processedData.floorPlans.length; i++) {
+        // Process each file with corresponding floor plan data
+        for (let i = 0; i < Math.min(processedData.floorPlans.length, files.floorPlanImages.length); i++) {
           const plan = processedData.floorPlans[i];
-          // For create: process all plans that have data, for update: only process if hasNewFile flag
-          const shouldProcess = existingProject ? plan.hasNewFile : true; // Always process in create mode
-          console.log(`Floor plan ${i}:`, { title: plan.title, alt: plan.alt, shouldProcess, fileIndex });
+          const file = files.floorPlanImages[i];
           
-          if (shouldProcess && fileIndex < files.floorPlanImages.length) {
-            // Delete old image if updating and exists
-            if (existingProject && plan.id) {
+          console.log(`Floor plan ${i}:`, { 
+            title: plan.title, 
+            alt: plan.alt, 
+            hasFile: !!file, 
+            fileName: file?.originalname,
+            processing: true 
+          });
+          
+          // Delete old image if updating and exists
+          if (existingProject && plan.id) {
+            const existingPlan = existingProject.floorPlans?.find(fp => fp.id?.toString() === plan.id || fp._id?.toString() === plan.id);
+            if (existingPlan && existingPlan.image) {
+              console.log(`🗑️ Deleting old floor plan image: ${existingPlan.image}`);
+              await this.deleteFile(existingPlan.image);
+            }
+          }
+          
+          const floorPlanPath = await this.saveFile(file, uploadDir, `floorplan_${Date.now()}_${i}`, projectFolderName);
+          plan.image = floorPlanPath;
+          console.log(`✅ Saved floor plan image: ${floorPlanPath}`);
+        }
+        
+        // Preserve existing images for items without new files
+        if (existingProject && processedData.floorPlans.length > files.floorPlanImages.length) {
+          for (let i = files.floorPlanImages.length; i < processedData.floorPlans.length; i++) {
+            const plan = processedData.floorPlans[i];
+            if (plan.id) {
               const existingPlan = existingProject.floorPlans?.find(fp => fp.id?.toString() === plan.id || fp._id?.toString() === plan.id);
-              if (existingPlan && existingPlan.image) {
-                console.log(`🗑️ Deleting old floor plan image: ${existingPlan.image}`);
-                await this.deleteFile(existingPlan.image);
+              if (existingPlan && existingPlan.image && !plan.image) {
+                plan.image = existingPlan.image;
+                console.log(`📋 Preserved existing floor plan image: ${existingPlan.image}`);
               }
             }
-            
-            const floorPlanPath = await this.saveFile(files.floorPlanImages[fileIndex], uploadDir, `floorplan_${Date.now()}_${i}`, projectFolderName);
-            plan.image = floorPlanPath;
-            console.log(`✅ Saved floor plan image: ${floorPlanPath}`);
-            fileIndex++;
           }
         }
+      } else if (existingProject?.floorPlans && processedData.floorPlans) {
+        // No new files, but ensure existing images are preserved
+        processedData.floorPlans.forEach((plan, i) => {
+          if (plan.id) {
+            const existingPlan = existingProject.floorPlans?.find(fp => fp.id?.toString() === plan.id || fp._id?.toString() === plan.id);
+            if (existingPlan && existingPlan.image && !plan.image) {
+              plan.image = existingPlan.image;
+            }
+          }
+        });
       }
 
       // Process project images - handle both create and update
@@ -485,29 +539,55 @@ class ProjectService {
           isUpdate: !!existingProject
         });
         
-        let fileIndex = 0;
-        for (let i = 0; i < processedData.projectImages.length; i++) {
+        // Process each file with corresponding image data
+        for (let i = 0; i < Math.min(processedData.projectImages.length, files.projectImageFiles.length); i++) {
           const img = processedData.projectImages[i];
-          // For create: process all images, for update: only process if hasNewFile flag
-          const shouldProcess = existingProject ? img.hasNewFile : true; // Always process in create mode
-          console.log(`Project image ${i}:`, { alt: img.alt, shouldProcess, fileIndex });
+          const file = files.projectImageFiles[i];
           
-          if (shouldProcess && fileIndex < files.projectImageFiles.length) {
-            // Delete old image if updating and exists
-            if (existingProject && img.id) {
+          console.log(`Project image ${i}:`, { 
+            alt: img.alt, 
+            hasFile: !!file, 
+            fileName: file?.originalname,
+            processing: true 
+          });
+          
+          // Delete old image if updating and exists
+          if (existingProject && img.id) {
+            const existingImg = existingProject.projectImages?.find(pImg => pImg.id?.toString() === img.id || pImg._id?.toString() === img.id);
+            if (existingImg && existingImg.image) {
+              console.log(`🗑️ Deleting old project image: ${existingImg.image}`);
+              await this.deleteFile(existingImg.image);
+            }
+          }
+          
+          const projectImagePath = await this.saveFile(file, uploadDir, `project_${Date.now()}_${i}`, projectFolderName);
+          img.image = projectImagePath;
+          console.log(`✅ Saved project image: ${projectImagePath}`);
+        }
+        
+        // Preserve existing images for items without new files
+        if (existingProject && processedData.projectImages.length > files.projectImageFiles.length) {
+          for (let i = files.projectImageFiles.length; i < processedData.projectImages.length; i++) {
+            const img = processedData.projectImages[i];
+            if (img.id) {
               const existingImg = existingProject.projectImages?.find(pImg => pImg.id?.toString() === img.id || pImg._id?.toString() === img.id);
-              if (existingImg && existingImg.image) {
-                console.log(`🗑️ Deleting old project image: ${existingImg.image}`);
-                await this.deleteFile(existingImg.image);
+              if (existingImg && existingImg.image && !img.image) {
+                img.image = existingImg.image;
+                console.log(`📋 Preserved existing project image: ${existingImg.image}`);
               }
             }
-            
-            const projectImagePath = await this.saveFile(files.projectImageFiles[fileIndex], uploadDir, `project_${Date.now()}_${i}`, projectFolderName);
-            img.image = projectImagePath;
-            console.log(`✅ Saved project image: ${projectImagePath}`);
-            fileIndex++;
           }
         }
+      } else if (existingProject?.projectImages && processedData.projectImages) {
+        // No new files, but ensure existing images are preserved
+        processedData.projectImages.forEach((img, i) => {
+          if (img.id) {
+            const existingImg = existingProject.projectImages?.find(pImg => pImg.id?.toString() === img.id || pImg._id?.toString() === img.id);
+            if (existingImg && existingImg.image && !img.image) {
+              img.image = existingImg.image;
+            }
+          }
+        });
       }
 
       // Process amenity images - handle both create and update
@@ -518,27 +598,44 @@ class ProjectService {
           isUpdate: !!existingProject
         });
         
-        let fileIndex = 0;
-        for (let i = 0; i < processedData.amenities.length; i++) {
+        // Process each file with corresponding amenity data
+        for (let i = 0; i < Math.min(processedData.amenities.length, files.amenityFiles.length); i++) {
           const amenity = processedData.amenities[i];
-          // For create: process all amenities, for update: only process if hasNewFile flag
-          const shouldProcess = existingProject ? amenity.hasNewFile : true; // Always process in create mode
-          console.log(`Amenity ${i}:`, { title: amenity.title, alt: amenity.alt, shouldProcess, fileIndex });
+          const file = files.amenityFiles[i];
           
-          if (shouldProcess && fileIndex < files.amenityFiles.length) {
-            // Delete old image if updating and exists
-            if (existingProject && amenity.id) {
+          console.log(`Amenity ${i}:`, { 
+            title: amenity.title, 
+            alt: amenity.alt, 
+            hasFile: !!file, 
+            fileName: file?.originalname,
+            processing: true 
+          });
+          
+          // Delete old image if updating and exists
+          if (existingProject && amenity.id) {
+            const existingAmenity = existingProject.amenities?.find(am => am.id?.toString() === amenity.id || am._id?.toString() === amenity.id);
+            if (existingAmenity && existingAmenity.svgOrImage) {
+              console.log(`🗑️ Deleting old amenity image: ${existingAmenity.svgOrImage}`);
+              await this.deleteFile(existingAmenity.svgOrImage);
+            }
+          }
+          
+          const amenityPath = await this.saveFile(file, uploadDir, `amenity_${Date.now()}_${i}`, projectFolderName);
+          amenity.svgOrImage = amenityPath;
+          console.log(`✅ Saved amenity image: ${amenityPath}`);
+        }
+        
+        // Preserve existing images for items without new files
+        if (existingProject && processedData.amenities.length > files.amenityFiles.length) {
+          for (let i = files.amenityFiles.length; i < processedData.amenities.length; i++) {
+            const amenity = processedData.amenities[i];
+            if (amenity.id) {
               const existingAmenity = existingProject.amenities?.find(am => am.id?.toString() === amenity.id || am._id?.toString() === amenity.id);
-              if (existingAmenity && existingAmenity.svgOrImage) {
-                console.log(`🗑️ Deleting old amenity image: ${existingAmenity.svgOrImage}`);
-                await this.deleteFile(existingAmenity.svgOrImage);
+              if (existingAmenity && existingAmenity.svgOrImage && !amenity.svgOrImage) {
+                amenity.svgOrImage = existingAmenity.svgOrImage;
+                console.log(`📋 Preserved existing amenity image: ${existingAmenity.svgOrImage}`);
               }
             }
-            
-            const amenityPath = await this.saveFile(files.amenityFiles[fileIndex], uploadDir, `amenity_${Date.now()}_${i}`, projectFolderName);
-            amenity.svgOrImage = amenityPath;
-            console.log(`✅ Saved amenity image: ${amenityPath}`);
-            fileIndex++;
           }
         }
       }
@@ -551,27 +648,43 @@ class ProjectService {
           isUpdate: !!existingProject
         });
         
-        let fileIndex = 0;
-        for (let i = 0; i < processedData.updatedImages.length; i++) {
+        // Process each file with corresponding image data
+        for (let i = 0; i < Math.min(processedData.updatedImages.length, files.updatedImageFiles.length); i++) {
           const img = processedData.updatedImages[i];
-          // For create: process all images, for update: only process if hasNewFile flag
-          const shouldProcess = existingProject ? img.hasNewFile : true; // Always process in create mode
-          console.log(`Updated image ${i}:`, { alt: img.alt, shouldProcess, fileIndex });
+          const file = files.updatedImageFiles[i];
           
-          if (shouldProcess && fileIndex < files.updatedImageFiles.length) {
-            // Delete old image if updating and exists
-            if (existingProject && img.id) {
+          console.log(`Updated image ${i}:`, { 
+            alt: img.alt, 
+            hasFile: !!file, 
+            fileName: file?.originalname,
+            processing: true 
+          });
+          
+          // Delete old image if updating and exists
+          if (existingProject && img.id) {
+            const existingImg = existingProject.updatedImages?.find(uImg => uImg.id?.toString() === img.id || uImg._id?.toString() === img.id);
+            if (existingImg && existingImg.image) {
+              console.log(`🗑️ Deleting old updated image: ${existingImg.image}`);
+              await this.deleteFile(existingImg.image);
+            }
+          }
+          
+          const updatedImagePath = await this.saveFile(file, uploadDir, `updated_${Date.now()}_${i}`, projectFolderName);
+          img.image = updatedImagePath;
+          console.log(`✅ Saved updated image: ${updatedImagePath}`);
+        }
+        
+        // Preserve existing images for items without new files
+        if (existingProject && processedData.updatedImages.length > files.updatedImageFiles.length) {
+          for (let i = files.updatedImageFiles.length; i < processedData.updatedImages.length; i++) {
+            const img = processedData.updatedImages[i];
+            if (img.id) {
               const existingImg = existingProject.updatedImages?.find(uImg => uImg.id?.toString() === img.id || uImg._id?.toString() === img.id);
-              if (existingImg && existingImg.image) {
-                console.log(`🗑️ Deleting old updated image: ${existingImg.image}`);
-                await this.deleteFile(existingImg.image);
+              if (existingImg && existingImg.image && !img.image) {
+                img.image = existingImg.image;
+                console.log(`📋 Preserved existing updated image: ${existingImg.image}`);
               }
             }
-            
-            const updatedImagePath = await this.saveFile(files.updatedImageFiles[fileIndex], uploadDir, `updated_${Date.now()}_${i}`, projectFolderName);
-            img.image = updatedImagePath;
-            console.log(`✅ Saved updated image: ${updatedImagePath}`);
-            fileIndex++;
           }
         }
       }
@@ -585,6 +698,9 @@ class ProjectService {
         if (existingProject && existingProject.cardImage) {
           await this.deleteFile(existingProject.cardImage);
         }
+      } else if (existingProject?.cardImage) {
+        // Preserve existing card image if no new file uploaded
+        processedData.cardImage = existingProject.cardImage;
       }
 
       
@@ -926,9 +1042,6 @@ class ProjectService {
   mergeWithExistingData(processedData, existingProject) {
     const finalData = { ...processedData };
 
-    // For arrays, we've already handled the merging in handleSpecificDeletions
-    // No need to re-merge here as the processed data already contains the correct arrays
-
     // Preserve existing aboutUsDetail structure if not being updated
     if (!processedData.aboutUsDetail && existingProject.aboutUsDetail) {
       finalData.aboutUsDetail = existingProject.aboutUsDetail;
@@ -943,6 +1056,49 @@ class ProjectService {
       if (!processedData.aboutUsDetail.image?.url && !processedData.deleteAboutImage) {
         finalData.aboutUsDetail.image = existingProject.aboutUsDetail.image || {};
       }
+    }
+
+    // Preserve existing banner section if not being updated
+    if (!processedData.bannerSection && existingProject.bannerSection) {
+      finalData.bannerSection = existingProject.bannerSection;
+    } else if (processedData.bannerSection && existingProject.bannerSection) {
+      // Merge banner section, preserving existing images if not being updated
+      finalData.bannerSection = {
+        ...existingProject.bannerSection,
+        ...processedData.bannerSection
+      };
+      
+      // Preserve desktop banner if not being updated
+      if (!processedData.bannerSection.desktopBannerImage && existingProject.bannerSection.desktopBannerImage) {
+        finalData.bannerSection.desktopBannerImage = existingProject.bannerSection.desktopBannerImage;
+      }
+      
+      // Preserve mobile banner if not being updated
+      if (!processedData.bannerSection.mobileBannerImage && existingProject.bannerSection.mobileBannerImage) {
+        finalData.bannerSection.mobileBannerImage = existingProject.bannerSection.mobileBannerImage;
+      }
+    }
+
+    // Preserve other files if not being updated
+    if (!processedData.brochure && existingProject.brochure) {
+      finalData.brochure = existingProject.brochure;
+    }
+    if (!processedData.cardImage && existingProject.cardImage) {
+      finalData.cardImage = existingProject.cardImage;
+    }
+
+    // Preserve arrays if they are empty or null in processedData but exist in existing
+    if ((!processedData.floorPlans || processedData.floorPlans.length === 0) && existingProject.floorPlans) {
+      finalData.floorPlans = existingProject.floorPlans;
+    }
+    if ((!processedData.projectImages || processedData.projectImages.length === 0) && existingProject.projectImages) {
+      finalData.projectImages = existingProject.projectImages;
+    }
+    if ((!processedData.amenities || processedData.amenities.length === 0) && existingProject.amenities) {
+      finalData.amenities = existingProject.amenities;
+    }
+    if ((!processedData.updatedImages || processedData.updatedImages.length === 0) && existingProject.updatedImages) {
+      finalData.updatedImages = existingProject.updatedImages;
     }
 
     return finalData;

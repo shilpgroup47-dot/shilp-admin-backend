@@ -10,6 +10,7 @@ const publicRoutes = require('./routes/publicRoutes');
 const healthRoutes = require('./routes/health');
 const adminRoutes = require('./routes/adminRoutes');
 const logRoutes = require('./routes/logRoutes');
+const jobOpeningRoutes = require('./routes/jobOpeningRoutes');
 
 const { connectDatabase } = require('./config/database');
 
@@ -52,12 +53,45 @@ app.use(cors({
 app.use(express.json({ limit: "150mb" }));
 app.use(express.urlencoded({ extended: true, limit: "150mb" }));
 
-// -------- Static --------
-app.use('/uploads', express.static('uploads'));
+// -------- Static Files --------
+const path = require('path');
+const fs = require('fs');
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log('📁 Created uploads directory:', uploadsDir);
+}
+
+// Serve static files with proper headers
+app.use('/uploads', express.static('uploads', {
+  // Add proper headers for production
+  setHeaders: (res, path) => {
+    res.set('Cache-Control', 'public, max-age=31536000'); // 1 year cache
+    res.set('Access-Control-Allow-Origin', '*');
+  }
+}));
 
 // -------- Test Route --------
 app.get('/', (req, res) => {
   res.status(200).send("Backend is running");
+});
+
+// Test uploads directory
+app.get('/test-uploads', (req, res) => {
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  const projectsDir = path.join(uploadsDir, 'projects');
+  
+  const stats = {
+    uploadsExists: fs.existsSync(uploadsDir),
+    projectsExists: fs.existsSync(projectsDir),
+    uploadsPath: uploadsDir,
+    projectsPath: projectsDir,
+    cwd: process.cwd()
+  };
+  
+  res.json(stats);
 });
 
 // -------- API Routes --------
@@ -68,6 +102,7 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/projecttree', projectTreeRoutes);
 app.use('/api/blogs', blogRoutes);
+app.use('/api/job-openings', jobOpeningRoutes);
 app.use('/api', logRoutes);
 
 // -------- Error Handler --------
