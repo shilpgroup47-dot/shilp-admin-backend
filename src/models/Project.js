@@ -221,7 +221,7 @@ const projectSchema = new mongoose.Schema({
   },
   cardHouse: {
     type: String,
-    enum: ['Ready to Move', 'Sample House Ready'],
+    enum: ['Ready to Move', 'Sample House Ready', 'none'],
     required: [true, 'Card house status is required']
   },
   

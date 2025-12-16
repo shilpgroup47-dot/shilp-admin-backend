@@ -328,8 +328,8 @@ const projectValidation = {
 
     body('cardHouse')
       .optional()
-      .isIn(['Ready to Move', 'Sample House Ready'])
-      .withMessage('Card house status must be Ready to Move or Sample House Ready'),
+      .isIn(['Ready to Move', 'Sample House Ready', 'none'])
+      .withMessage('Card house status must be Ready to Move, Sample House Ready, or none'),
 
     body('youtubeUrl')
       .optional({ nullable: true, checkFalsy: true })
